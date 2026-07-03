@@ -83,14 +83,33 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
   L.marker([coords.lat, coords.lng]).addTo(map).bindPopup(`<b>${name}</b>`);
 });
 
-// Draw the full campus road route
-const routeWaypoints = routeSequence.map(stop => L.latLng(stopCoords[stop].lat, stopCoords[stop].lng));
 // --- EXHIBITION: 60FPS SMOOTH ROUTING SIMULATOR ---
 let simCoordinates = [];
 let simActive = false;
 
+const customRoutePath = [
+    L.latLng(stopCoords["PMMD"].lat, stopCoords["PMMD"].lng),
+    L.latLng(stopCoords["An-Nur Mosque"].lat, stopCoords["An-Nur Mosque"].lng),
+    L.latLng(stopCoords["Main Gate"].lat, stopCoords["Main Gate"].lng),
+    L.latLng(stopCoords["V7"].lat, stopCoords["V7"].lng),
+    L.latLng(stopCoords["Chancellor Complex"].lat, stopCoords["Chancellor Complex"].lng),
+    L.latLng(stopCoords["R&D"].lat, stopCoords["R&D"].lng),
+    L.latLng(stopCoords["V5"].lat, stopCoords["V5"].lng),
+    L.latLng(stopCoords["V4"].lat, stopCoords["V4"].lng),
+    L.latLng(stopCoords["PMMD"].lat, stopCoords["PMMD"].lng),
+    L.latLng(stopCoords["Block L"].lat, stopCoords["Block L"].lng),
+    L.latLng(4.38440, 100.97095),
+    L.latLng(4.38320, 100.97050),
+    L.latLng(stopCoords["Chancellor Complex"].lat, stopCoords["Chancellor Complex"].lng),
+    L.latLng(stopCoords["V7"].lat, stopCoords["V7"].lng),
+    L.latLng(stopCoords["An-Nur Mosque"].lat, stopCoords["An-Nur Mosque"].lng),
+    L.latLng(stopCoords["PMMD"].lat, stopCoords["PMMD"].lng)
+];
+
+L.polyline(customRoutePath, { color: '#3b82f6', opacity: 0.6, weight: 6 }).addTo(map);
+
 const routingControl = L.Routing.control({
-    waypoints: routeWaypoints,
+    waypoints: customRoutePath,
     routeWhileDragging: false,
     addWaypoints: false,
     show: false,
@@ -98,9 +117,9 @@ const routingControl = L.Routing.control({
     lineOptions: { styles: [{color: '#3b82f6', opacity: 0.6, weight: 6}] }
 }).addTo(map);
 
-// When Leaflet calculates the road, extract the coordinates and start driving!
-routingControl.on('routesfound', function(e) {
-    simCoordinates = e.routes[0].coordinates;
+// Use the custom path so the bus follows the direct road from Block L to Chancellor Complex
+routingControl.on('routesfound', function() {
+    simCoordinates = customRoutePath;
     if (!simActive) {
         simActive = true;
         startSmoothSimulation();
@@ -263,6 +282,10 @@ onValue(busLocationRef, (snapshot) => {
     etaDisplay.innerText = "Bus Offline";
     etaDisplay.style.color = "#dc3545"; 
   }
+
+  if (data && data.lat && data.lng) {
+    updateNearbyStopInfo(data.lat, data.lng, "bus");
+  }
 });
 
 // Navigation Logic
@@ -288,6 +311,35 @@ navItems.forEach((item, index) => {
     });
 });
 
+function updateNearbyStopInfo(lat, lng, mode = "distance") {
+    let nearestStopName = "";
+    let shortestDistance = Infinity;
+
+    Object.entries(stopCoords).forEach(([name, coords]) => {
+        const dist = calculateDistance(lat, lng, coords.lat, coords.lng);
+        if (dist < shortestDistance) {
+            shortestDistance = dist;
+            nearestStopName = name;
+        }
+    });
+
+    const distMeters = Math.round(shortestDistance * 1000);
+    const averageSpeedKmH = 25;
+    const timeMinutes = Math.max(1, Math.round((shortestDistance / averageSpeedKmH) * 60));
+
+    const nearestStopUI = document.getElementById("nearest-stop-name");
+    const nearestDistUI = document.getElementById("nearest-stop-dist");
+    const nearestTimeUI = document.getElementById("nearest-stop-time");
+
+    if (nearestStopUI && nearestDistUI && nearestTimeUI) {
+        nearestStopUI.innerText = nearestStopName;
+        nearestDistUI.innerText = `${distMeters} meters away`;
+        nearestTimeUI.innerText = mode === "bus"
+            ? `Bus ETA: ${timeMinutes} min`
+            : `${timeMinutes} min away`;
+    }
+}
+
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
 // Places a blue pin at the Main Gate by default
 // Replace your current userMarker definition with this:
@@ -299,28 +351,7 @@ userMarker.bindPopup("<b>Exhibition Mode</b><br>Drag me to find the nearest stop
 
 userMarker.on('dragend', function (event) {
     const userPos = event.target.getLatLng();
-    let nearestStopName = "";
-    let shortestDistance = Infinity;
-
-    // Scan all campus stops to find the closest one to the pin
-    Object.entries(stopCoords).forEach(([name, coords]) => {
-        const dist = calculateDistance(userPos.lat, userPos.lng, coords.lat, coords.lng);
-        if (dist < shortestDistance) {
-            shortestDistance = dist;
-            nearestStopName = name;
-        }
-    });
-
-    const distMeters = Math.round(shortestDistance * 1000);
-    
-    // Update the "Nearby Stops" UI card dynamically
-    const nearestStopUI = document.getElementById("nearest-stop-name");
-    const nearestDistUI = document.getElementById("nearest-stop-dist");
-    
-    if (nearestStopUI && nearestDistUI) {
-        nearestStopUI.innerText = nearestStopName;
-        nearestDistUI.innerText = `${distMeters} meters away`;
-    }
+    updateNearbyStopInfo(userPos.lat, userPos.lng, "distance");
 });
 
 // --- LIVE CLOCK ---
