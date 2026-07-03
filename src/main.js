@@ -164,7 +164,14 @@ navItems.forEach((item, index) => {
         
         // 2. Hide all views, show the one matching the index
         views.forEach(view => view.style.display = 'none');
-        views[index].style.display = 'block';
+        views[index].style.display = 'flex'; // Changed from 'block' to 'flex'
+        
+        // 3. THE LEAFLET FIX: Force the map to redraw if the Map tab (index 0) is clicked
+        if (index === 0) {
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 10);
+        }
     });
 });
 
