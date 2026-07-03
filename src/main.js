@@ -208,6 +208,7 @@ function startSmoothSimulation() {
 
         currentIndex++;
         updateHighlightedStop();
+        refreshNearbyStops();
     }, 500);
 }
 
@@ -293,6 +294,7 @@ onValue(busLocationRef, (snapshot) => {
     
     // --- 5. Calculate ETA & Update UI ---
     updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
+    refreshNearbyStops();
 
   } else {
     etaDisplay.innerText = "Bus Offline";
@@ -323,33 +325,46 @@ navItems.forEach((item, index) => {
     });
 });
 
+function getReferencePosition() {
+    if (simBusMarker) {
+        const busPos = simBusMarker.getLatLng();
+        return { lat: busPos.lat, lng: busPos.lng };
+    }
+
+    if (liveBusMarker) {
+        const busPos = liveBusMarker.getLatLng();
+        return { lat: busPos.lat, lng: busPos.lng };
+    }
+
+    return currentLocation;
+}
+
 function updateNearbyStopInfo(lat, lng, mode = "distance") {
     const averageSpeedKmH = 25;
     const nearbyList = document.getElementById("nearby-stops-list");
 
     if (!nearbyList) return;
 
-    const stopEntries = Object.entries(stopCoords)
-        .map(([name, coords]) => {
+    const stopNames = mode === "bus"
+        ? [...new Set(routeSequence.slice(currentTargetIndex).concat(routeSequence.slice(0, currentTargetIndex)))]
+        : Object.keys(stopCoords);
+
+    const stopEntries = stopNames
+        .map((name) => {
+            const coords = stopCoords[name];
+            if (!coords) return null;
+
             const distToStop = calculateDistance(lat, lng, coords.lat, coords.lng);
             const distMeters = Math.round(distToStop * 1000);
             const directMinutes = Math.max(1, Math.round((distToStop / averageSpeedKmH) * 60));
 
-            const routeIndex = routeSequence.indexOf(name);
-            const previousStops = routeIndex >= 0 ? routeSequence.slice(0, routeIndex) : [];
-            const cumulativeDistance = previousStops.reduce((total, stopName) => {
-                const stopCoord = stopCoords[stopName];
-                return total + calculateDistance(stopCoord.lat, stopCoord.lng, coords.lat, coords.lng);
-            }, 0);
-            const cumulativeMinutes = Math.max(1, Math.round((cumulativeDistance / averageSpeedKmH) * 60));
-
             return {
                 name,
                 distMeters,
-                timeMinutes: mode === "bus" ? cumulativeMinutes : directMinutes
+                timeMinutes: directMinutes
             };
         })
-        .sort((a, b) => a.timeMinutes - b.timeMinutes)
+        .filter(Boolean)
         .slice(0, 3);
 
     const now = new Date();
@@ -380,7 +395,8 @@ function updateNearbyStopInfo(lat, lng, mode = "distance") {
 let currentLocation = { lat: 4.3856013, lng: 100.9789672 };
 
 function refreshNearbyStops() {
-    updateNearbyStopInfo(currentLocation.lat, currentLocation.lng, "bus");
+    const reference = getReferencePosition();
+    updateNearbyStopInfo(reference.lat, reference.lng, "bus");
 }
 
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
