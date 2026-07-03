@@ -17,10 +17,15 @@ const map = L.map('map', { zoomControl: false });
 // --- CUSTOM ICONS ---
 // 1. The Droppable Person (Pegman)
 const pegmanIcon = L.divIcon({
-    html: '<div style="font-size: 45px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.6));">🧍‍♂️</div>',
+    html: `
+      <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; z-index: 1000;">
+        <div class="user-marker-pulse" style="position: absolute; width: 24px; height: 24px; border-radius: 50%; background: rgba(59, 130, 246, 0.35);"></div>
+        <div style="font-size: 45px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.6));">🧍‍♂️</div>
+      </div>
+    `,
     className: 'clear-icon',
-    iconSize: [45, 45],
-    iconAnchor: [22, 40],
+    iconSize: [48, 48],
+    iconAnchor: [24, 40],
     popupAnchor: [0, -40]
 });
 
@@ -78,9 +83,20 @@ const routeSequence = [
   "An-Nur Mosque", "PMMD"
 ];
 
+const stopMarkers = {};
+
 // Draw markers for all physical stops
 Object.entries(stopCoords).forEach(([name, coords]) => {
-  L.marker([coords.lat, coords.lng]).addTo(map).bindPopup(`<b>${name}</b>`);
+  const marker = L.marker([coords.lat, coords.lng], {
+    icon: L.divIcon({
+      html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
+      className: 'clear-icon',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
+    })
+  }).addTo(map).bindPopup(`<b>${name}</b>`);
+
+  stopMarkers[name] = marker;
 });
 
 // --- EXHIBITION: 60FPS SMOOTH ROUTING SIMULATOR ---
@@ -105,6 +121,21 @@ routingControl.on('routesfound', function(e) {
         startSmoothSimulation();
     }
 });
+
+function updateHighlightedStop() {
+    Object.entries(stopMarkers).forEach(([name, marker]) => {
+        const icon = marker.getIcon();
+        const isNextStop = name === routeSequence[currentTargetIndex];
+        const color = isNextStop ? '#ef4444' : '#3b82f6';
+
+        marker.setIcon(L.divIcon({
+            html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
+            className: 'clear-icon',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        }));
+    });
+}
 
 function startSmoothSimulation() {
     let currentIndex = 0;
@@ -153,6 +184,7 @@ function startSmoothSimulation() {
             
             setTimeout(() => {
                 currentTargetIndex = (currentTargetIndex + 1) % routeSequence.length;
+                updateHighlightedStop();
                 isPaused = false;
             }, 3000); 
         } else {
@@ -161,8 +193,7 @@ function startSmoothSimulation() {
             etaDisplay.style.color = "#94a3b8";
         }
 
-        currentIndex++;
-    }, 500); // Increase to slow the marker down; decrease to speed it up
+        currentIndex++;        updateHighlightedStop();    }, 500); // Increase to slow the marker down; decrease to speed it up
 }
 
 // --- 4. THE GEOFENCING LOGIC ---
@@ -263,10 +294,6 @@ onValue(busLocationRef, (snapshot) => {
     etaDisplay.innerText = "Bus Offline";
     etaDisplay.style.color = "#dc3545"; 
   }
-
-  if (data && data.lat && data.lng) {
-    updateNearbyStopInfo(data.lat, data.lng, "bus");
-  }
 });
 
 // Navigation Logic
@@ -346,10 +373,16 @@ function updateNearbyStopInfo(lat, lng, mode = "distance") {
     }).join("");
 }
 
+let currentLocation = { lat: 4.3856013, lng: 100.9789672 };
+
+function refreshNearbyStops() {
+    updateNearbyStopInfo(currentLocation.lat, currentLocation.lng, "bus");
+}
+
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
 // Places a blue pin at the Main Gate by default
 // Replace your current userMarker definition with this:
-const userMarker = L.marker([4.3856013, 100.9789672], { 
+const userMarker = L.marker([currentLocation.lat, currentLocation.lng], { 
     draggable: true, 
     icon: pegmanIcon 
 }).addTo(map);
@@ -357,8 +390,11 @@ userMarker.bindPopup("<b>Exhibition Mode</b><br>Drag me to find the nearest stop
 
 userMarker.on('dragend', function (event) {
     const userPos = event.target.getLatLng();
-    updateNearbyStopInfo(userPos.lat, userPos.lng, "distance");
+    currentLocation = { lat: userPos.lat, lng: userPos.lng };
+    refreshNearbyStops();
 });
+
+refreshNearbyStops();
 
 // --- LIVE CLOCK ---
 function updateTime() {
