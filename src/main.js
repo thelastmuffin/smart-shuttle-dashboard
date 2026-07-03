@@ -87,7 +87,7 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 let simCoordinates = [];
 let simActive = false;
 
-const customRoutePoints = [
+const customWaypointSequence = [
     stopCoords["PMMD"],
     stopCoords["An-Nur Mosque"],
     stopCoords["Main Gate"],
@@ -99,41 +99,30 @@ const customRoutePoints = [
     stopCoords["PMMD"],
     stopCoords["Block L"],
     { lat: 4.38440, lng: 100.97095 },
-    { lat: 4.38320, lng: 100.97050 },
     stopCoords["Chancellor Complex"],
     stopCoords["V7"],
     stopCoords["An-Nur Mosque"],
     stopCoords["PMMD"]
 ];
 
-function buildSmoothRoute(points, steps = 8) {
-    const route = [];
+const routingControl = L.Routing.control({
+    waypoints: customWaypointSequence.map(point => L.latLng(point.lat, point.lng)),
+    routeWhileDragging: false,
+    addWaypoints: false,
+    show: false,
+    createMarker: function() { return null; },
+    lineOptions: { styles: [{color: '#3b82f6', opacity: 0.6, weight: 6}] }
+}).addTo(map);
 
-    points.forEach((point, index) => {
-        if (index === 0) {
-            route.push(L.latLng(point.lat, point.lng));
-            return;
-        }
+routingControl.on('routesfound', function(e) {
+    simCoordinates = e.routes[0].coordinates;
+    L.polyline(e.routes[0].coordinates, { color: '#3b82f6', opacity: 0.6, weight: 6 }).addTo(map);
 
-        const previousPoint = points[index - 1];
-        for (let step = 1; step <= steps; step++) {
-            const t = step / steps;
-            route.push(L.latLng(
-                previousPoint.lat + (point.lat - previousPoint.lat) * t,
-                previousPoint.lng + (point.lng - previousPoint.lng) * t
-            ));
-        }
-    });
-
-    return route;
-}
-
-const customRoutePath = buildSmoothRoute(customRoutePoints, 8);
-L.polyline(customRoutePath, { color: '#3b82f6', opacity: 0.6, weight: 6 }).addTo(map);
-
-simCoordinates = customRoutePath;
-simActive = true;
-startSmoothSimulation();
+    if (!simActive) {
+        simActive = true;
+        startSmoothSimulation();
+    }
+});
 
 function startSmoothSimulation() {
     let currentIndex = 0;
