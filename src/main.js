@@ -87,18 +87,7 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 let simCoordinates = [];
 let simActive = false;
 
-const routeWaypoints = [];
-routeSequence.forEach((stop, index) => {
-    routeWaypoints.push(L.latLng(stopCoords[stop].lat, stopCoords[stop].lng));
-
-    if (stop === "Block L") {
-        routeWaypoints.push(L.latLng(4.38490, 100.97120));
-    }
-
-    if (stop === "Chancellor Complex") {
-        routeWaypoints.push(L.latLng(4.38360, 100.97120));
-    }
-});
+const routeWaypoints = routeSequence.map(stop => L.latLng(stopCoords[stop].lat, stopCoords[stop].lng));
 
 const routingControl = L.Routing.control({
     waypoints: routeWaypoints,
@@ -173,7 +162,7 @@ function startSmoothSimulation() {
         }
 
         currentIndex++;
-    }, 140); // Keeps movement smooth without obvious jumps
+    }, 500); // Increase to slow the marker down; decrease to speed it up
 }
 
 // --- 4. THE GEOFENCING LOGIC ---
@@ -304,32 +293,38 @@ navItems.forEach((item, index) => {
 });
 
 function updateNearbyStopInfo(lat, lng, mode = "distance") {
-    let nearestStopName = "";
-    let shortestDistance = Infinity;
+    const stopEntries = Object.entries(stopCoords)
+        .map(([name, coords]) => ({
+            name,
+            coords,
+            dist: calculateDistance(lat, lng, coords.lat, coords.lng)
+        }))
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, 3);
 
-    Object.entries(stopCoords).forEach(([name, coords]) => {
-        const dist = calculateDistance(lat, lng, coords.lat, coords.lng);
-        if (dist < shortestDistance) {
-            shortestDistance = dist;
-            nearestStopName = name;
-        }
-    });
-
-    const distMeters = Math.round(shortestDistance * 1000);
     const averageSpeedKmH = 25;
-    const timeMinutes = Math.max(1, Math.round((shortestDistance / averageSpeedKmH) * 60));
+    const nearbyList = document.getElementById("nearby-stops-list");
 
-    const nearestStopUI = document.getElementById("nearest-stop-name");
-    const nearestDistUI = document.getElementById("nearest-stop-dist");
-    const nearestTimeUI = document.getElementById("nearest-stop-time");
+    if (!nearbyList) return;
 
-    if (nearestStopUI && nearestDistUI && nearestTimeUI) {
-        nearestStopUI.innerText = nearestStopName;
-        nearestDistUI.innerText = `${distMeters} meters away`;
-        nearestTimeUI.innerText = mode === "bus"
+    nearbyList.innerHTML = stopEntries.map(({ name, dist, coords }) => {
+        const distMeters = Math.round(dist * 1000);
+        const timeMinutes = Math.max(1, Math.round((dist / averageSpeedKmH) * 60));
+        const etaText = mode === "bus"
             ? `Bus ETA: ${timeMinutes} min`
             : `${timeMinutes} min away`;
-    }
+
+        return `
+            <div class="ui-card nearby-stop-card">
+              <div class="icon-circle">📍</div>
+              <div class="nearby-stop-info">
+                <h4>${name}</h4>
+                <p>${distMeters} meters away</p>
+              </div>
+              <div class="nearby-stop-time">${etaText}</div>
+            </div>
+        `;
+    }).join("");
 }
 
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---

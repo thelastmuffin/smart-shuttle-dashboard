@@ -205,6 +205,7 @@ body {
 /* --- NEARBY STOPS (MAP TAB) --- */
 .nearby-section { padding: 15px; }
 .nearby-section h3 { margin: 0 0 10px 0; font-size: 16px; }
+#nearby-stops-list { display: flex; flex-direction: column; gap: 10px; }
 .nearby-stop-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .nearby-stop-info { flex: 1; }
 .nearby-stop-time {
