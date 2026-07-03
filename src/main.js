@@ -124,7 +124,6 @@ routingControl.on('routesfound', function(e) {
 
 function updateHighlightedStop() {
     Object.entries(stopMarkers).forEach(([name, marker]) => {
-        const icon = marker.getIcon();
         const isNextStop = name === routeSequence[currentTargetIndex];
         const color = isNextStop ? '#ef4444' : '#3b82f6';
 
@@ -135,6 +134,23 @@ function updateHighlightedStop() {
             iconAnchor: [8, 8]
         }));
     });
+}
+
+function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
+    if (!targetStopName || !Number.isFinite(distanceKm)) {
+        etaDisplay.innerText = "Waiting for GPS signal...";
+        etaDisplay.style.color = "#94a3b8";
+        return;
+    }
+
+    if (isArriving || distanceKm < 0.02) {
+        etaDisplay.innerText = `Arriving at ${targetStopName} Now!`;
+        etaDisplay.style.color = "#10b981";
+    } else {
+        const timeMinutes = Math.max(1, Math.round((distanceKm / 25) * 60));
+        etaDisplay.innerText = `Next Stop: ${targetStopName} in ${timeMinutes} min`;
+        etaDisplay.style.color = "#94a3b8";
+    }
 }
 
 function startSmoothSimulation() {
@@ -177,23 +193,22 @@ function startSmoothSimulation() {
         const targetCoords = stopCoords[targetStopName];
         const distToStop = calculateDistance(nextCoord.lat, nextCoord.lng, targetCoords.lat, targetCoords.lng);
 
-        if (distToStop < 0.02) { // Trigger at 20 meters
+        if (distToStop < 0.02) {
             isPaused = true;
-            etaDisplay.innerText = `Arriving at ${targetStopName} Now!`;
-            etaDisplay.style.color = "#10b981"; 
-            
+            updateEtaDisplay(targetStopName, distToStop, true);
+
             setTimeout(() => {
                 currentTargetIndex = (currentTargetIndex + 1) % routeSequence.length;
                 updateHighlightedStop();
                 isPaused = false;
-            }, 3000); 
+            }, 3000);
         } else {
-            const timeMinutes = Math.max(1, Math.round((distToStop / 25) * 60));
-            etaDisplay.innerText = `Next Stop: ${targetStopName} in ${timeMinutes} min`;
-            etaDisplay.style.color = "#94a3b8";
+            updateEtaDisplay(targetStopName, distToStop, false);
         }
 
-        currentIndex++;        updateHighlightedStop();    }, 500); // Increase to slow the marker down; decrease to speed it up
+        currentIndex++;
+        updateHighlightedStop();
+    }, 500);
 }
 
 // --- 4. THE GEOFENCING LOGIC ---
@@ -277,18 +292,7 @@ onValue(busLocationRef, (snapshot) => {
     const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
     
     // --- 5. Calculate ETA & Update UI ---
-    const averageSpeedKmH = 25; 
-    const timeHours = distanceKm / averageSpeedKmH;
-    const timeMinutes = Math.round(timeHours * 60);
-    
-    if (distanceKm < 0.05 || timeMinutes < 1) {
-        etaDisplay.innerText = `Arriving at ${targetStopName} Now!`;
-        etaDisplay.style.color = "#28a745"; 
-    } else {
-        // Added a slight disclaimer so students account for campus traffic
-        etaDisplay.innerText = `Next Stop: ${targetStopName} in ${timeMinutes} min (Optimal Traffic)`;
-        etaDisplay.style.color = "#333";
-    }
+    updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
 
   } else {
     etaDisplay.innerText = "Bus Offline";
