@@ -14,9 +14,36 @@ const etaDisplay = document.getElementById("eta-display");
 // --- 2. MAP INITIALIZATION ---
 const map = L.map('map').setView([4.3856, 100.9791], 15);
 
+// --- CUSTOM ICONS ---
+// 1. The Droppable Person (Pegman)
+const pegmanIcon = L.divIcon({
+    html: '<div style="font-size: 45px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.6));">🧍‍♂️</div>',
+    className: 'clear-icon',
+    iconSize: [45, 45],
+    iconAnchor: [22, 40],
+    popupAnchor: [0, -40]
+});
+
+// 2. Top-Down GPS Navigation Arrow
+const gpsArrowIcon = L.divIcon({
+    html: `<div id="bus-arrow" style="
+        width: 0; height: 0; 
+        border-left: 12px solid transparent;
+        border-right: 12px solid transparent;
+        border-bottom: 30px solid #3b82f6; /* Blue Accent */
+        filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.5));
+        transition: transform 0.1s linear; /* Smooth rotation */
+    "></div>`,
+    className: 'clear-icon',
+    iconSize: [24, 30],
+    iconAnchor: [12, 15]
+});
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
+
+
 
 // --- 3. THE DATA DICTIONARY ---
 const stopCoords = {
@@ -45,14 +72,83 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 
 // Draw the full campus road route
 const routeWaypoints = routeSequence.map(stop => L.latLng(stopCoords[stop].lat, stopCoords[stop].lng));
-L.Routing.control({
+// --- EXHIBITION: 60FPS SMOOTH ROUTING SIMULATOR ---
+let simCoordinates = [];
+let simActive = false;
+
+const routingControl = L.Routing.control({
     waypoints: routeWaypoints,
     routeWhileDragging: false,
     addWaypoints: false,
-    show: false, 
-    createMarker: function() { return null; }, 
-    lineOptions: { styles: [{color: '#007bff', opacity: 0.6, weight: 5}] }
+    show: false,
+    createMarker: function() { return null; },
+    lineOptions: { styles: [{color: '#3b82f6', opacity: 0.6, weight: 6}] }
 }).addTo(map);
+
+// When Leaflet calculates the road, extract the coordinates and start driving!
+routingControl.on('routesfound', function(e) {
+    simCoordinates = e.routes[0].coordinates;
+    if (!simActive) {
+        simActive = true;
+        startSmoothSimulation();
+    }
+});
+
+function startSmoothSimulation() {
+    let currentIndex = 0;
+    let isPaused = false;
+    
+    // Spawn the bus with the top-down GPS arrow
+    if (!busMarker) {
+        busMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {icon: gpsArrowIcon}).addTo(map);
+    }
+
+    // Animation Loop (Runs every 40 milliseconds for smooth movement)
+    setInterval(() => {
+        if (isPaused || currentIndex >= simCoordinates.length - 1) {
+            // Loop the bus back to the start if it finishes the route
+            if (currentIndex >= simCoordinates.length - 1) currentIndex = 0; 
+            return;
+        }
+
+        const currentCoord = simCoordinates[currentIndex];
+        const nextCoord = simCoordinates[currentIndex + 1];
+
+        // 1. Calculate Heading/Rotation for the Arrow
+        const dy = nextCoord.lat - currentCoord.lat;
+        const dx = nextCoord.lng - currentCoord.lng;
+        const angle = Math.atan2(dx, dy) * (180 / Math.PI); // Angle from North
+
+        // 2. Move Bus & Rotate Arrow
+        busMarker.setLatLng([nextCoord.lat, nextCoord.lng]);
+        const arrowEl = document.getElementById('bus-arrow');
+        if (arrowEl) arrowEl.style.transform = `rotate(${angle}deg)`;
+
+        // 3. Exhibition ETA & Stop Logic
+        const targetStopName = routeSequence[currentTargetIndex];
+        const targetCoords = stopCoords[targetStopName];
+        const distToStop = calculateDistance(nextCoord.lat, nextCoord.lng, targetCoords.lat, targetCoords.lng);
+
+        if (distToStop < 0.02) { // Trigger at 20 meters
+            isPaused = true;
+            etaDisplay.innerText = `Arriving at ${targetStopName} Now!`;
+            etaDisplay.style.color = "#10b981"; // Green
+            
+            // Wait 3 seconds at the bus stop, then continue to the next one
+            setTimeout(() => {
+                currentTargetIndex = (currentTargetIndex + 1) % routeSequence.length;
+                isPaused = false;
+            }, 3000); 
+        } else {
+            // Calculate fake ETA based on distance remaining
+            const timeMinutes = Math.max(1, Math.round((distToStop / 25) * 60));
+            etaDisplay.innerText = `Next Stop: ${targetStopName} in ${timeMinutes} min`;
+            etaDisplay.style.color = "#94a3b8";
+        }
+
+        currentIndex++;
+    }, 40); // Lower number = faster bus speed
+}
 
 // --- 4. THE GEOFENCING LOGIC ---
 let busMarker = null;
@@ -99,8 +195,11 @@ onValue(busLocationRef, (snapshot) => {
                 speeding: isSpeeding
             });
 
-            // Optional: Pop an alert in the developer console (great for the exhibition!)
-            console.log(`🚨 SAFETY EVENT RECORDED AT ${data.timestamp} 🚨`);
+            // Pop an alert on the UI for the judges!
+            let alertMsg = "";
+            if (isBraking) alertMsg += "🚨 HARSH BRAKING DETECTED!\n";
+            if (isPothole) alertMsg += "⚠️ POTHOLE DETECTED!\n";
+            alert(alertMsg + `Time: ${data.timestamp}`);
         }
     }
 
@@ -177,7 +276,11 @@ navItems.forEach((item, index) => {
 
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
 // Places a blue pin at the Main Gate by default
-const userMarker = L.marker([4.3856013, 100.9789672], { draggable: true }).addTo(map);
+// Replace your current userMarker definition with this:
+const userMarker = L.marker([4.3856013, 100.9789672], { 
+    draggable: true, 
+    icon: pegmanIcon 
+}).addTo(map);
 userMarker.bindPopup("<b>Exhibition Mode</b><br>Drag me to find the nearest stop!").openPopup();
 
 userMarker.on('dragend', function (event) {
