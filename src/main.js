@@ -12,7 +12,7 @@ const db = getDatabase(app);
 const etaDisplay = document.getElementById("eta-display");
 
 // --- 2. MAP INITIALIZATION ---
-const map = L.map('map').setView([4.3856013, 100.9789672], 16);
+const map = L.map('map', { zoomControl: false });
 
 // --- CUSTOM ICONS ---
 // 1. The Droppable Person (Pegman)
@@ -59,7 +59,17 @@ const stopCoords = {
 const utpBounds = L.latLngBounds(
   Object.values(stopCoords).map(({ lat, lng }) => [lat, lng])
 );
-map.fitBounds(utpBounds, { padding: [25, 25], maxZoom: 15 });
+
+function focusUtpMap() {
+  map.invalidateSize();
+  setTimeout(() => {
+    map.fitBounds(utpBounds, { padding: [25, 25], maxZoom: 15 });
+  }, 150);
+}
+
+focusUtpMap();
+window.addEventListener('load', focusUtpMap);
+window.addEventListener('resize', focusUtpMap);
 
 // The exact sequence the bus travels
 const routeSequence = [
@@ -273,9 +283,7 @@ navItems.forEach((item, index) => {
         
         // 3. THE LEAFLET FIX: Force the map to redraw if the Map tab (index 0) is clicked
         if (index === 0) {
-            setTimeout(() => {
-                map.invalidateSize();
-            }, 10);
+            focusUtpMap();
         }
     });
 });
