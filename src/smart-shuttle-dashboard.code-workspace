@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "receiver2",
+			"path": "../../../Documents/PlatformIO/Projects/receiver2"
+		},
+		{
+			"name": "transmitter2",
+			"path": "../../../Documents/PlatformIO/Projects/transmitter2"
+		}
+	],
+	"settings": {}
+}
