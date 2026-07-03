@@ -87,26 +87,21 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 let simCoordinates = [];
 let simActive = false;
 
-const customWaypointSequence = [
-    stopCoords["PMMD"],
-    stopCoords["An-Nur Mosque"],
-    stopCoords["Main Gate"],
-    stopCoords["V7"],
-    stopCoords["Chancellor Complex"],
-    stopCoords["R&D"],
-    stopCoords["V5"],
-    stopCoords["V4"],
-    stopCoords["PMMD"],
-    stopCoords["Block L"],
-    { lat: 4.38440, lng: 100.97095 },
-    stopCoords["Chancellor Complex"],
-    stopCoords["V7"],
-    stopCoords["An-Nur Mosque"],
-    stopCoords["PMMD"]
-];
+const routeWaypoints = [];
+routeSequence.forEach((stop, index) => {
+    routeWaypoints.push(L.latLng(stopCoords[stop].lat, stopCoords[stop].lng));
+
+    if (stop === "Block L") {
+        routeWaypoints.push(L.latLng(4.38490, 100.97120));
+    }
+
+    if (stop === "Chancellor Complex") {
+        routeWaypoints.push(L.latLng(4.38360, 100.97120));
+    }
+});
 
 const routingControl = L.Routing.control({
-    waypoints: customWaypointSequence.map(point => L.latLng(point.lat, point.lng)),
+    waypoints: routeWaypoints,
     routeWhileDragging: false,
     addWaypoints: false,
     show: false,
@@ -116,8 +111,6 @@ const routingControl = L.Routing.control({
 
 routingControl.on('routesfound', function(e) {
     simCoordinates = e.routes[0].coordinates;
-    L.polyline(e.routes[0].coordinates, { color: '#3b82f6', opacity: 0.6, weight: 6 }).addTo(map);
-
     if (!simActive) {
         simActive = true;
         startSmoothSimulation();
