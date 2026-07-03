@@ -13,45 +13,18 @@
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    
-    <div id="app-container">
-      <header class="app-header">
-        <div class="logo-icon">🚌</div>
-        <div>
-          <h1>UTP BusTracker</h1>
-          <p>Live campus tracking</p>
+    <div id="view-map" class="view">
+        <div class="map-wrapper">
+            <div id="map"></div>
+            <div class="floating-card">
+                <h3>Live Status</h3>
+                <p id="eta-display">Waiting for GPS signal...</p>
+            </div>
         </div>
-      </header>
-
-      <div class="map-wrapper">
-        <div id="map"></div>
-        
-        <div class="floating-card">
-          <h3>Live Status</h3>
-          <p id="eta-display">Waiting for GPS signal...</p>
-        </div>
-      </div>
-
-      <nav class="bottom-nav">
-        <a href="#" class="nav-item active">
-          <span class="icon">🗺️</span>
-          <span>Map</span>
-        </a>
-        <a href="#" class="nav-item">
-          <span class="icon">🛤️</span>
-          <span>Routes</span>
-        </a>
-        <a href="#" class="nav-item">
-          <span class="icon">🚌</span>
-          <span>Buses</span>
-        </a>
-        <a href="#" class="nav-item">
-          <span class="icon">📅</span>
-          <span>Schedule</span>
-        </a>
-      </nav>
     </div>
 
-    <script type="module" src="/src/main.js"></script>
+    <div id="view-routes" class="view" style="display:none; padding: 20px;"><h2>Routes Coming Soon</h2></div>
+    <div id="view-buses" class="view" style="display:none; padding: 20px;"><h2>Buses Coming Soon</h2></div>
+    <div id="view-schedule" class="view" style="display:none; padding: 20px;"><h2>Schedule Coming Soon</h2></div>
   </body>
 </html>

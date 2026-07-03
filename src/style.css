@@ -133,3 +133,8 @@ body {
 .nav-item .icon {
   font-size: 20px;
 }
+
+/* Add this to the bottom of your style.css */
+.leaflet-routing-container {
+    display: none !important;
+}

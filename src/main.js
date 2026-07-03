@@ -117,3 +117,21 @@ onValue(busLocationRef, (snapshot) => {
     etaDisplay.style.color = "#dc3545"; 
   }
 });
+
+// Navigation Logic
+const navItems = document.querySelectorAll('.nav-item');
+const views = document.querySelectorAll('.view');
+
+navItems.forEach((item, index) => {
+    item.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        // 1. Remove 'active' class from all, add to clicked
+        navItems.forEach(nav => nav.classList.remove('active'));
+        item.classList.add('active');
+        
+        // 2. Hide all views, show the one matching the index
+        views.forEach(view => view.style.display = 'none');
+        views[index].style.display = 'block';
+    });
+});
