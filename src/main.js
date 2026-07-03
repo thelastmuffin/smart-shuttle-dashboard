@@ -56,6 +56,11 @@ const stopCoords = {
   "Block L": { lat: 4.3851762, lng: 100.9709521 }
 };
 
+const utpBounds = L.latLngBounds(
+  Object.values(stopCoords).map(({ lat, lng }) => [lat, lng])
+);
+map.fitBounds(utpBounds, { padding: [25, 25], maxZoom: 15 });
+
 // The exact sequence the bus travels
 const routeSequence = [
   "PMMD", "An-Nur Mosque", "Main Gate", "V7", "Chancellor Complex",
@@ -122,17 +127,7 @@ function startSmoothSimulation() {
             const angle = Math.atan2(dx, dy) * (180 / Math.PI); 
             const arrowEl = document.getElementById('bus-arrow');
             if (arrowEl) arrowEl.style.transform = `rotate(${angle}deg)`;
-        }// 3. The Offline Seri Iskandar Bus Icon
-const externalBusIcon = L.divIcon({
-    html: '<div style="font-size: 28px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));">🚐</div>',
-    className: 'clear-icon',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
-});
-
-// Place the bus static on the Ipoh-Lumut Highway
-const bus2Marker = L.marker([4.3725, 100.9830], { icon: externalBusIcon }).addTo(map);
-bus2Marker.bindPopup("<b>U2: Seri Iskandar Route</b><br>Currently operating off-campus.");
+        }
 
         // 2. Move Bus
         busMarker.setLatLng([nextCoord.lat, nextCoord.lng]);
@@ -158,7 +153,7 @@ bus2Marker.bindPopup("<b>U2: Seri Iskandar Route</b><br>Currently operating off-
         }
 
         currentIndex++;
-    }, 200); // 200ms makes it run at a much smoother, realistic speed
+    }, 500); // 500ms makes the bus move slower and more smoothly
 }
 
 // --- 4. THE GEOFENCING LOGIC ---
