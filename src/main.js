@@ -195,3 +195,34 @@ userMarker.on('dragend', function (event) {
     // 5. Update a UI element (e.g., modifying your Nearby Stops card)
     alert(`Nearest Stop: ${nearestStopName} (${distMeters} meters away)`);
 });
+
+// --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
+// Places a blue pin at the Main Gate by default
+const userMarker = L.marker([4.3856013, 100.9789672], { draggable: true }).addTo(map);
+userMarker.bindPopup("<b>Exhibition Mode</b><br>Drag me to find the nearest stop!").openPopup();
+
+userMarker.on('dragend', function (event) {
+    const userPos = event.target.getLatLng();
+    let nearestStopName = "";
+    let shortestDistance = Infinity;
+
+    // Scan all campus stops to find the closest one to the pin
+    Object.entries(stopCoords).forEach(([name, coords]) => {
+        const dist = calculateDistance(userPos.lat, userPos.lng, coords.lat, coords.lng);
+        if (dist < shortestDistance) {
+            shortestDistance = dist;
+            nearestStopName = name;
+        }
+    });
+
+    const distMeters = Math.round(shortestDistance * 1000);
+    
+    // Update the "Nearby Stops" UI card dynamically
+    const nearestStopUI = document.getElementById("nearest-stop-name");
+    const nearestDistUI = document.getElementById("nearest-stop-dist");
+    
+    if (nearestStopUI && nearestDistUI) {
+        nearestStopUI.innerText = nearestStopName;
+        nearestDistUI.innerText = `${distMeters} meters away`;
+    }
+});

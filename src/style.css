@@ -138,3 +138,79 @@ body {
 .leaflet-routing-container {
     display: none !important;
 }
+
+/* --- APP VIEWS & NAVIGATION --- */
+.view {
+  flex-grow: 1;
+  overflow-y: auto; /* Allows scrolling on lists */
+  padding-bottom: 20px;
+}
+.page-content {
+  padding: 0 15px;
+}
+.page-content h2 { margin: 10px 0 5px; font-size: 22px; font-weight: 700; }
+.subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; }
+
+/* --- UI CARDS --- */
+.ui-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 15px;
+  margin-bottom: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ui-card h4 { margin: 0 0 3px 0; font-size: 15px; }
+.ui-card p { margin: 0; font-size: 12px; color: var(--text-muted); }
+
+/* --- BADGES & PILLS --- */
+.route-badge {
+  width: 45px; height: 45px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: bold; font-size: 18px;
+}
+.route-badge.U1 { background: #0284c7; color: white; }
+.pill { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+.pill.outline { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+.pill.success { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+.pill.primary { background: var(--accent-blue); color: white; }
+.warning-text { color: #f59e0b !important; font-weight: bold; }
+.text-right { text-align: right; }
+
+/* --- FLEXBOX LAYOUTS --- */
+.route-header, .bus-header, .bus-driver, .bus-stats, .list-item {
+  display: flex; align-items: center; gap: 15px;
+}
+.bus-header { justify-content: space-between; margin-bottom: 15px; }
+.bus-driver { padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px; }
+.bus-stats { justify-content: space-between; }
+.icon-circle, .avatar {
+  width: 35px; height: 35px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* --- TIMELINE (ROUTES TAB) --- */
+.timeline { margin-top: 15px; padding-left: 20px; border-left: 2px solid rgba(255,255,255,0.1); }
+.timeline-item { position: relative; padding-bottom: 15px; padding-left: 15px; font-size: 14px; }
+.timeline-item::before {
+  content: ''; position: absolute; left: -21px; top: 2px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--bg-card); border: 2px solid var(--accent-blue);
+}
+.timeline-item span { font-size: 10px; color: var(--text-muted); margin-left: 10px; }
+
+/* --- TIME GRID (SCHEDULE TAB) --- */
+.time-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
+.time-pill { background: rgba(255,255,255,0.05); padding: 8px 15px; border-radius: 8px; font-size: 13px; font-family: monospace; }
+
+/* --- NEARBY STOPS (MAP TAB) --- */
+.nearby-section { padding: 15px; }
+.nearby-section h3 { margin: 0 0 10px 0; font-size: 16px; }
+
+/* --- SETTINGS TOGGLE --- */
+.toggle { width: 40px; height: 22px; background: rgba(255,255,255,0.2); border-radius: 20px; position: relative; margin-left: auto; }
+.toggle.active { background: var(--accent-blue); }
+.toggle::after { content: ''; position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: 0.3s; }
+.toggle.active::after { left: 20px; }
