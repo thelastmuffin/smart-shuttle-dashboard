@@ -2,35 +2,56 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Smart Shuttle Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>UTP BusTracker</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     
-    <style>
-      body { margin: 0; font-family: sans-serif; background: #f4f4f9; }
-      .header { text-align: center; padding: 20px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative; z-index: 1000; }
-      #eta-display { color: #007bff; margin-top: 10px; }
-      /* 2. The map needs a strictly defined height to render */
-      #map { height: 75vh; width: 100%; } 
-    </style>
+    <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     
-    <div class="header">
-      <h1>Smart Shuttle Live Tracker</h1>
-      <h2 id="eta-display">Waiting for GPS signal...</h2>
+    <div id="app-container">
+      <header class="app-header">
+        <div class="logo-icon">🚌</div>
+        <div>
+          <h1>UTP BusTracker</h1>
+          <p>Live campus tracking</p>
+        </div>
+      </header>
+
+      <div class="map-wrapper">
+        <div id="map"></div>
+        
+        <div class="floating-card">
+          <h3>Live Status</h3>
+          <p id="eta-display">Waiting for GPS signal...</p>
+        </div>
+      </div>
+
+      <nav class="bottom-nav">
+        <a href="#" class="nav-item active">
+          <span class="icon">🗺️</span>
+          <span>Map</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">🛤️</span>
+          <span>Routes</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">🚌</span>
+          <span>Buses</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">📅</span>
+          <span>Schedule</span>
+        </a>
+      </nav>
     </div>
 
-    <div id="map"></div>
-    
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
