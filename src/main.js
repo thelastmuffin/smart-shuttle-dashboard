@@ -39,6 +39,18 @@ const gpsArrowIcon = L.divIcon({
     iconAnchor: [12, 15]
 });
 
+// 3. The Offline Seri Iskandar Bus Icon
+const externalBusIcon = L.divIcon({
+    html: '<div style="font-size: 28px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));">🚐</div>',
+    className: 'clear-icon',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
+});
+
+// Place the bus static on the Ipoh-Lumut Highway
+const bus2Marker = L.marker([4.3725, 100.9830], { icon: externalBusIcon }).addTo(map);
+bus2Marker.bindPopup("<b>U2: Seri Iskandar Route</b><br>Currently operating off-campus.");
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
@@ -50,11 +62,11 @@ const stopCoords = {
   "PMMD": { lat: 4.3883576, lng: 100.9672179 },
   "An-Nur Mosque": { lat: 4.3860407, lng: 100.9738842 },
   "Main Gate": { lat: 4.3856013, lng: 100.9789672 },
-  "V7": { lat: 4.383104, lng: 100.974502 }, // Corrected from V6
+  "V7": { lat: 4.383104, lng: 100.974502 },
   "Chancellor Complex": { lat: 4.381329, lng: 100.970230 },
   "R&D": { lat: 4.3792507, lng: 100.9608721 },
-  "V5": { lat: 4.3887305, lng: 100.9651686 },
-  "V4": { lat: 4.3843636, lng: 100.9626794 },
+  "V4": { lat: 4.3887305, lng: 100.9651686 },
+  "V5": { lat: 4.3843636, lng: 100.9626794 },
   "Block L": { lat: 4.3851762, lng: 100.9709521 }
 };
 
@@ -104,9 +116,9 @@ function startSmoothSimulation() {
     }
 
     // Animation Loop (Runs every 40 milliseconds for smooth movement)
+    // Animation Loop (Changed from 40ms to 120ms to slow the bus down)
     setInterval(() => {
         if (isPaused || currentIndex >= simCoordinates.length - 1) {
-            // Loop the bus back to the start if it finishes the route
             if (currentIndex >= simCoordinates.length - 1) currentIndex = 0; 
             return;
         }
@@ -114,15 +126,30 @@ function startSmoothSimulation() {
         const currentCoord = simCoordinates[currentIndex];
         const nextCoord = simCoordinates[currentIndex + 1];
 
-        // 1. Calculate Heading/Rotation for the Arrow
-        const dy = nextCoord.lat - currentCoord.lat;
-        const dx = nextCoord.lng - currentCoord.lng;
-        const angle = Math.atan2(dx, dy) * (180 / Math.PI); // Angle from North
+        // 1. Calculate Heading/Rotation (WITH ANTI-JITTER)
+        const pointDist = calculateDistance(currentCoord.lat, currentCoord.lng, nextCoord.lat, nextCoord.lng);
+        
+        // Only calculate a new rotation if the points are far enough apart
+        if (pointDist > 0.00005) { 
+            const dy = nextCoord.lat - currentCoord.lat;
+            const dx = nextCoord.lng - currentCoord.lng;
+            const angle = Math.atan2(dx, dy) * (180 / Math.PI); 
+            const arrowEl = document.getElementById('bus-arrow');
+            if (arrowEl) arrowEl.style.transform = `rotate(${angle}deg)`;
+        }// 3. The Offline Seri Iskandar Bus Icon
+const externalBusIcon = L.divIcon({
+    html: '<div style="font-size: 28px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));">🚐</div>',
+    className: 'clear-icon',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
+});
 
-        // 2. Move Bus & Rotate Arrow
+// Place the bus static on the Ipoh-Lumut Highway
+const bus2Marker = L.marker([4.3725, 100.9830], { icon: externalBusIcon }).addTo(map);
+bus2Marker.bindPopup("<b>U2: Seri Iskandar Route</b><br>Currently operating off-campus.");
+
+        // 2. Move Bus
         busMarker.setLatLng([nextCoord.lat, nextCoord.lng]);
-        const arrowEl = document.getElementById('bus-arrow');
-        if (arrowEl) arrowEl.style.transform = `rotate(${angle}deg)`;
 
         // 3. Exhibition ETA & Stop Logic
         const targetStopName = routeSequence[currentTargetIndex];
@@ -132,22 +159,20 @@ function startSmoothSimulation() {
         if (distToStop < 0.02) { // Trigger at 20 meters
             isPaused = true;
             etaDisplay.innerText = `Arriving at ${targetStopName} Now!`;
-            etaDisplay.style.color = "#10b981"; // Green
+            etaDisplay.style.color = "#10b981"; 
             
-            // Wait 3 seconds at the bus stop, then continue to the next one
             setTimeout(() => {
                 currentTargetIndex = (currentTargetIndex + 1) % routeSequence.length;
                 isPaused = false;
             }, 3000); 
         } else {
-            // Calculate fake ETA based on distance remaining
             const timeMinutes = Math.max(1, Math.round((distToStop / 25) * 60));
             etaDisplay.innerText = `Next Stop: ${targetStopName} in ${timeMinutes} min`;
             etaDisplay.style.color = "#94a3b8";
         }
 
         currentIndex++;
-    }, 40); // Lower number = faster bus speed
+    }, 120); // 120ms makes it run at a much smoother, realistic speed
 }
 
 // --- 4. THE GEOFENCING LOGIC ---
@@ -308,3 +333,13 @@ userMarker.on('dragend', function (event) {
         nearestDistUI.innerText = `${distMeters} meters away`;
     }
 });
+
+// --- LIVE CLOCK ---
+function updateTime() {
+    const now = new Date();
+    // Formats time as HH:MM (e.g., 14:30)
+    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('live-time').innerText = timeString;
+}
+setInterval(updateTime, 1000);
+updateTime(); // Run immediately on load
