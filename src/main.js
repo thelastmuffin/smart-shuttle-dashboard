@@ -12,7 +12,7 @@ const db = getDatabase(app);
 const etaDisplay = document.getElementById("eta-display");
 
 // --- 2. MAP INITIALIZATION ---
-const map = L.map('map').setView([4.3856, 100.9791], 15);
+const map = L.map('map').setView([4.3856013, 100.9789672], 16);
 
 // --- CUSTOM ICONS ---
 // 1. The Droppable Person (Pegman)
@@ -39,23 +39,9 @@ const gpsArrowIcon = L.divIcon({
     iconAnchor: [12, 15]
 });
 
-// 3. The Offline Seri Iskandar Bus Icon
-const externalBusIcon = L.divIcon({
-    html: '<div style="font-size: 28px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));">🚐</div>',
-    className: 'clear-icon',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
-});
-
-// Place the bus static on the Ipoh-Lumut Highway
-const bus2Marker = L.marker([4.3725, 100.9830], { icon: externalBusIcon }).addTo(map);
-bus2Marker.bindPopup("<b>U2: Seri Iskandar Route</b><br>Currently operating off-campus.");
-
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
-
-
 
 // --- 3. THE DATA DICTIONARY ---
 const stopCoords = {
@@ -172,7 +158,7 @@ bus2Marker.bindPopup("<b>U2: Seri Iskandar Route</b><br>Currently operating off-
         }
 
         currentIndex++;
-    }, 120); // 120ms makes it run at a much smoother, realistic speed
+    }, 200); // 200ms makes it run at a much smoother, realistic speed
 }
 
 // --- 4. THE GEOFENCING LOGIC ---

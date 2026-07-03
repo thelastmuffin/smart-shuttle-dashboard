@@ -62,16 +62,56 @@
               <div class="timeline-item">PMMD <span>START</span></div>
               <div class="timeline-item">An-Nur Mosque</div>
               <div class="timeline-item">UTP Main Gate</div>
-              <div class="timeline-item">Village 7</div>
+              <div class="timeline-item">Village 6</div>
+              <div class="timeline-item">Village 4 & 5</div>
               <div class="timeline-item">Chancellor Complex</div>
+              <div class="timeline-item">R&D Building</div>
+              <div class="timeline-item">Block L</div>
+              <div class="timeline-item">PMMD <span>END</span></div>
             </div>
           </div>
+
+          <div class="ui-card route-card">
+            <div class="route-header">
+              <div style="background: #f59e0b;" class="route-badge U1">U2</div>
+              <div>
+                <h4>Seri Iskandar Town</h4>
+                <span class="pill outline">7 Stops</span>
+                <span class="pill success">Active Now</span>
+              </div>
+            </div>
+            <div class="timeline">
+              <div class="timeline-item">PMMD <span>START</span></div>
+              <div class="timeline-item">UTP Main Gate</div>
+              <div class="timeline-item">Pump Station, Tronoh</div>
+              <div class="timeline-item">Lotus Bandar U</div>
+              <div class="timeline-item">Bandar Universiti</div>
+              <div class="timeline-item">Billion / Econsave</div>
+              <div class="timeline-item">PMMD <span>END</span></div>
+            </div>
+          </div>
+
+          <div class="ui-card route-card">
+            <div class="route-header">
+              <div style="background: #64748b;" class="route-badge U1">U3</div>
+              <div>
+                <h4>Ipoh (Weekend)</h4>
+                <span class="pill outline">Express</span>
+                <span class="pill outline" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);">Inactive</span>
+              </div>
+            </div>
+            <div class="timeline">
+              <div class="timeline-item">PMMD <span>START</span></div>
+              <div class="timeline-item">Ipoh City Center <span>END</span></div>
+            </div>
+          </div>
+
         </div>
       </div>
 
       <div id="view-buses" class="view" style="display:none;">
         <div class="page-content">
-          <h2>Active Buses</h2>
+          <h2>Active Fleet</h2>
           <p class="subtitle">Buses currently operating</p>
           
           <div class="ui-card">
@@ -79,21 +119,21 @@
               <div class="route-badge U1">U1</div>
               <div>
                 <h4>ALA 1001</h4>
-                <p>Standard Bus</p>
+                <p>Smart Shuttle Node</p>
               </div>
-              <span class="pill primary">On Time</span>
+              <span class="pill primary">Live Map</span>
             </div>
             <div class="bus-driver">
-              <div class="avatar">👤</div>
+              <div class="avatar">👨‍✈️</div>
               <div>
                 <h4>Ahmad bin Abdullah</h4>
-                <p>⭐ 4.8 rating</p>
+                <p>⭐ 4.8 Rating</p>
               </div>
             </div>
             <div class="bus-stats">
               <div>
-                <p>Current location</p>
-                <h4>UTP Main Gate</h4>
+                <p>Current Route</p>
+                <h4 style="color: var(--accent-green);">Within UTP Campus</h4>
               </div>
               <div class="text-right">
                 <p class="warning-text">Medium</p>
@@ -101,6 +141,54 @@
               </div>
             </div>
           </div>
+
+          <div class="ui-card">
+            <div class="bus-header">
+              <div style="background: #f59e0b;" class="route-badge U1">U2</div>
+              <div>
+                <h4>ALB 2044</h4>
+                <p>Standard Bus</p>
+              </div>
+              <span class="pill success">On Time</span>
+            </div>
+            <div class="bus-driver">
+              <div class="avatar">👨‍✈️</div>
+              <div>
+                <h4>Muthusamy</h4>
+                <p>⭐ 4.9 Rating</p>
+              </div>
+            </div>
+            <div class="bus-stats">
+              <div>
+                <p>Current Route</p>
+                <h4 style="color: var(--accent-blue);">Seri Iskandar</h4>
+              </div>
+              <div class="text-right">
+                <p style="color: #ef4444; font-weight: bold;">High</p>
+                <h4>45/50</h4>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 30px; margin-bottom: 15px; font-size: 16px; color: var(--text-muted);">Offline Buses</h3>
+          
+          <div class="ui-card" style="opacity: 0.6;">
+            <div class="bus-header">
+              <div style="background: #64748b;" class="route-badge U1">U3</div>
+              <div>
+                <h4>ALC 3099</h4>
+                <p>Standard Bus</p>
+              </div>
+              <span class="pill outline">In Depot</span>
+            </div>
+            <div class="bus-stats" style="margin-top: 10px;">
+              <div>
+                <p>Assigned Route</p>
+                <h4>Ipoh (Weekend)</h4>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
