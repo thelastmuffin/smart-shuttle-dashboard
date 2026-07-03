@@ -87,52 +87,61 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 let simCoordinates = [];
 let simActive = false;
 
-const customRoutePath = [
-    L.latLng(stopCoords["PMMD"].lat, stopCoords["PMMD"].lng),
-    L.latLng(stopCoords["An-Nur Mosque"].lat, stopCoords["An-Nur Mosque"].lng),
-    L.latLng(stopCoords["Main Gate"].lat, stopCoords["Main Gate"].lng),
-    L.latLng(stopCoords["V7"].lat, stopCoords["V7"].lng),
-    L.latLng(stopCoords["Chancellor Complex"].lat, stopCoords["Chancellor Complex"].lng),
-    L.latLng(stopCoords["R&D"].lat, stopCoords["R&D"].lng),
-    L.latLng(stopCoords["V5"].lat, stopCoords["V5"].lng),
-    L.latLng(stopCoords["V4"].lat, stopCoords["V4"].lng),
-    L.latLng(stopCoords["PMMD"].lat, stopCoords["PMMD"].lng),
-    L.latLng(stopCoords["Block L"].lat, stopCoords["Block L"].lng),
-    L.latLng(4.38440, 100.97095),
-    L.latLng(4.38320, 100.97050),
-    L.latLng(stopCoords["Chancellor Complex"].lat, stopCoords["Chancellor Complex"].lng),
-    L.latLng(stopCoords["V7"].lat, stopCoords["V7"].lng),
-    L.latLng(stopCoords["An-Nur Mosque"].lat, stopCoords["An-Nur Mosque"].lng),
-    L.latLng(stopCoords["PMMD"].lat, stopCoords["PMMD"].lng)
+const customRoutePoints = [
+    stopCoords["PMMD"],
+    stopCoords["An-Nur Mosque"],
+    stopCoords["Main Gate"],
+    stopCoords["V7"],
+    stopCoords["Chancellor Complex"],
+    stopCoords["R&D"],
+    stopCoords["V5"],
+    stopCoords["V4"],
+    stopCoords["PMMD"],
+    stopCoords["Block L"],
+    { lat: 4.38440, lng: 100.97095 },
+    { lat: 4.38320, lng: 100.97050 },
+    stopCoords["Chancellor Complex"],
+    stopCoords["V7"],
+    stopCoords["An-Nur Mosque"],
+    stopCoords["PMMD"]
 ];
 
+function buildSmoothRoute(points, steps = 8) {
+    const route = [];
+
+    points.forEach((point, index) => {
+        if (index === 0) {
+            route.push(L.latLng(point.lat, point.lng));
+            return;
+        }
+
+        const previousPoint = points[index - 1];
+        for (let step = 1; step <= steps; step++) {
+            const t = step / steps;
+            route.push(L.latLng(
+                previousPoint.lat + (point.lat - previousPoint.lat) * t,
+                previousPoint.lng + (point.lng - previousPoint.lng) * t
+            ));
+        }
+    });
+
+    return route;
+}
+
+const customRoutePath = buildSmoothRoute(customRoutePoints, 8);
 L.polyline(customRoutePath, { color: '#3b82f6', opacity: 0.6, weight: 6 }).addTo(map);
 
-const routingControl = L.Routing.control({
-    waypoints: customRoutePath,
-    routeWhileDragging: false,
-    addWaypoints: false,
-    show: false,
-    createMarker: function() { return null; },
-    lineOptions: { styles: [{color: '#3b82f6', opacity: 0.6, weight: 6}] }
-}).addTo(map);
-
-// Use the custom path so the bus follows the direct road from Block L to Chancellor Complex
-routingControl.on('routesfound', function() {
-    simCoordinates = customRoutePath;
-    if (!simActive) {
-        simActive = true;
-        startSmoothSimulation();
-    }
-});
+simCoordinates = customRoutePath;
+simActive = true;
+startSmoothSimulation();
 
 function startSmoothSimulation() {
     let currentIndex = 0;
     let isPaused = false;
     
     // Spawn the bus with the top-down GPS arrow
-    if (!busMarker) {
-        busMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {icon: gpsArrowIcon}).addTo(map);
+    if (!simBusMarker) {
+        simBusMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {icon: gpsArrowIcon}).addTo(map);
     }
 
     // Animation Loop (Runs every 40 milliseconds for smooth movement)
@@ -159,7 +168,7 @@ function startSmoothSimulation() {
         }
 
         // 2. Move Bus
-        busMarker.setLatLng([nextCoord.lat, nextCoord.lng]);
+        simBusMarker.setLatLng([nextCoord.lat, nextCoord.lng]);
 
         // 3. Exhibition ETA & Stop Logic
         const targetStopName = routeSequence[currentTargetIndex];
@@ -182,11 +191,12 @@ function startSmoothSimulation() {
         }
 
         currentIndex++;
-    }, 500); // 500ms makes the bus move slower and more smoothly
+    }, 140); // Keeps movement smooth without obvious jumps
 }
 
 // --- 4. THE GEOFENCING LOGIC ---
-let busMarker = null;
+let simBusMarker = null;
+let liveBusMarker = null;
 let currentTargetIndex = 1; // We start at 1, looking for the 2nd stop in the loop
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -238,11 +248,11 @@ onValue(busLocationRef, (snapshot) => {
         }
     }
 
-    // --- 2. Move the Bus Marker ---
-    if (busMarker === null) {
-        busMarker = L.marker([data.lat, data.lng]).addTo(map);
+    // --- 2. Move the Live Bus Marker ---
+    if (liveBusMarker === null) {
+        liveBusMarker = L.marker([data.lat, data.lng]).addTo(map);
     } else {
-        busMarker.setLatLng([data.lat, data.lng]);
+        liveBusMarker.setLatLng([data.lat, data.lng]);
     }
     
     // --- 3. THE GEOFENCE SNAP (Self-Healing Logic) ---

@@ -205,6 +205,15 @@ body {
 /* --- NEARBY STOPS (MAP TAB) --- */
 .nearby-section { padding: 15px; }
 .nearby-section h3 { margin: 0 0 10px 0; font-size: 16px; }
+.nearby-stop-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.nearby-stop-info { flex: 1; }
+.nearby-stop-time {
+  margin-left: auto;
+  color: var(--accent-blue);
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+}
 
 /* --- SETTINGS TOGGLE --- */
 .toggle { width: 40px; height: 22px; background: rgba(255,255,255,0.2); border-radius: 20px; position: relative; margin-left: auto; }
