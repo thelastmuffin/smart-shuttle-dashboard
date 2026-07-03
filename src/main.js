@@ -168,34 +168,6 @@ navItems.forEach((item, index) => {
     });
 });
 
-// --- INTERACTIVE USER LOCATION (EXHIBITION DEMO) ---
-
-// 1. Create a draggable Blue pin for the user
-const userMarker = L.marker([4.3856, 100.978967], { draggable: true }).addTo(map);
-userMarker.bindPopup("<b>You Are Here</b><br>Drag me around UTP!").openPopup();
-
-// 2. Listen for when the judge drops the pin
-userMarker.on('dragend', function (event) {
-    const userPos = event.target.getLatLng();
-    let nearestStopName = "";
-    let shortestDistance = Infinity;
-
-    // 3. Scan all stops to find the closest one
-    Object.entries(stopCoords).forEach(([name, coords]) => {
-        const dist = calculateDistance(userPos.lat, userPos.lng, coords.lat, coords.lng);
-        if (dist < shortestDistance) {
-            shortestDistance = dist;
-            nearestStopName = name;
-        }
-    });
-
-    // 4. Convert distance to meters for display
-    const distMeters = Math.round(shortestDistance * 1000);
-    
-    // 5. Update a UI element (e.g., modifying your Nearby Stops card)
-    alert(`Nearest Stop: ${nearestStopName} (${distMeters} meters away)`);
-});
-
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
 // Places a blue pin at the Main Gate by default
 const userMarker = L.marker([4.3856013, 100.9789672], { draggable: true }).addTo(map);
