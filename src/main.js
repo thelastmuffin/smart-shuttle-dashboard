@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue } from "firebase/database";
+import { getDatabase, ref, onValue, push } from "firebase/database";
+
 
 // --- 1. FIREBASE SETUP ---
 const firebaseConfig = {
@@ -66,20 +67,51 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c; 
 }
 
+let lastLoggedTimestamp = "";
+
 const busLocationRef = ref(db, 'bus1/location');
 
 onValue(busLocationRef, (snapshot) => {
   const data = snapshot.val();
   
   if (data && data.lat && data.lng) {
-    // 1. Move the Bus Marker
+    
+    // --- 1. HISTORICAL DATA LOGGER ---
+    // If the data has alerts, and we haven't already logged this exact timestamp...
+    if (data.alerts && data.timestamp !== lastLoggedTimestamp) {
+        
+        const isBraking = data.alerts.harsh_brake === true;
+        const isPothole = data.alerts.pothole === true;
+        const isSpeeding = data.alerts.overspeed === true;
+
+        if (isBraking || isPothole || isSpeeding) {
+            lastLoggedTimestamp = data.timestamp; // Remember this event
+            
+            // Push a permanent record to the Database
+            const logsRef = ref(db, 'bus1/event_logs');
+            push(logsRef, {
+                time: data.timestamp,
+                lat: data.lat,
+                lng: data.lng,
+                speed_kmh: data.speed,
+                harsh_brake: isBraking,
+                pothole_hit: isPothole,
+                speeding: isSpeeding
+            });
+
+            // Optional: Pop an alert in the developer console (great for the exhibition!)
+            console.log(`🚨 SAFETY EVENT RECORDED AT ${data.timestamp} 🚨`);
+        }
+    }
+
+    // --- 2. Move the Bus Marker ---
     if (busMarker === null) {
         busMarker = L.marker([data.lat, data.lng]).addTo(map);
     } else {
         busMarker.setLatLng([data.lat, data.lng]);
     }
     
-    // 2. THE GEOFENCE SNAP (Self-Healing Logic)
+    // --- 3. THE GEOFENCE SNAP (Self-Healing Logic) ---
     // Scan all stops to see if the bus is physically at one right now
     for (let i = 0; i < routeSequence.length; i++) {
         const checkCoords = stopCoords[routeSequence[i]];
@@ -93,12 +125,12 @@ onValue(busLocationRef, (snapshot) => {
         }
     }
 
-    // 3. Identify Target Coordinates & Distance
+    // --- 4. Identify Target Coordinates & Distance ---
     const targetStopName = routeSequence[currentTargetIndex];
     const targetCoords = stopCoords[targetStopName];
     const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
     
-    // 4. Calculate ETA & Update UI
+    // --- 5. Calculate ETA & Update UI ---
     const averageSpeedKmH = 25; 
     const timeHours = distanceKm / averageSpeedKmH;
     const timeMinutes = Math.round(timeHours * 60);
@@ -134,4 +166,32 @@ navItems.forEach((item, index) => {
         views.forEach(view => view.style.display = 'none');
         views[index].style.display = 'block';
     });
+});
+
+// --- INTERACTIVE USER LOCATION (EXHIBITION DEMO) ---
+
+// 1. Create a draggable Blue pin for the user
+const userMarker = L.marker([4.3856, 100.978967], { draggable: true }).addTo(map);
+userMarker.bindPopup("<b>You Are Here</b><br>Drag me around UTP!").openPopup();
+
+// 2. Listen for when the judge drops the pin
+userMarker.on('dragend', function (event) {
+    const userPos = event.target.getLatLng();
+    let nearestStopName = "";
+    let shortestDistance = Infinity;
+
+    // 3. Scan all stops to find the closest one
+    Object.entries(stopCoords).forEach(([name, coords]) => {
+        const dist = calculateDistance(userPos.lat, userPos.lng, coords.lat, coords.lng);
+        if (dist < shortestDistance) {
+            shortestDistance = dist;
+            nearestStopName = name;
+        }
+    });
+
+    // 4. Convert distance to meters for display
+    const distMeters = Math.round(shortestDistance * 1000);
+    
+    // 5. Update a UI element (e.g., modifying your Nearby Stops card)
+    alert(`Nearest Stop: ${nearestStopName} (${distMeters} meters away)`);
 });
