@@ -196,17 +196,15 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
         etaDisplay.style.color = "#94a3b8";
     }
 }
+
 function startSmoothSimulation() {
     let currentIndex = 0;
     let isPaused = false;
     
-    // Spawn the bus with the top-down GPS arrow
     if (!simBusMarker) {
         simBusMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {icon: gpsArrowIcon}).addTo(map);
     }
 
-    // Animation Loop (Runs every 40 milliseconds for smooth movement)
-    // Animation Loop (Changed from 40ms to 120ms to slow the bus down)
     setInterval(() => {
         if (isPaused || currentIndex >= simCoordinates.length - 1) {
             if (currentIndex >= simCoordinates.length - 1) currentIndex = 0; 
@@ -216,10 +214,8 @@ function startSmoothSimulation() {
         const currentCoord = simCoordinates[currentIndex];
         const nextCoord = simCoordinates[currentIndex + 1];
 
-        // 1. Calculate Heading/Rotation (WITH ANTI-JITTER)
+        // 1. Rotation logic (with jitter protection)
         const pointDist = calculateDistance(currentCoord.lat, currentCoord.lng, nextCoord.lat, nextCoord.lng);
-        
-        // Only calculate a new rotation if the points are far enough apart
         if (pointDist > 0.00005) { 
             const dy = nextCoord.lat - currentCoord.lat;
             const dx = nextCoord.lng - currentCoord.lng;
@@ -228,22 +224,21 @@ function startSmoothSimulation() {
             if (arrowEl) arrowEl.style.transform = `rotate(${angle}deg)`;
         }
 
-        // 2. Move Bus
         simBusMarker.setLatLng([nextCoord.lat, nextCoord.lng]);
 
-        // 3. Exhibition ETA & Stop Logic
+        // 2. Exhibition ETA & Stop Logic (Safe Check)
         const targetStopName = routeSequence[currentTargetIndex];
         const targetCoords = stopCoords[targetStopName];
         
         if (targetCoords) {
             const distToStop = calculateDistance(nextCoord.lat, nextCoord.lng, targetCoords.lat, targetCoords.lng);
 
-            // INCREASED RADIUS TO 0.05 (50 meters) so the bus doesn't accidentally skip the stop!
             if (distToStop < 0.05) {
                 isPaused = true;
                 updateEtaDisplay(targetStopName, distToStop, true);
 
                 setTimeout(() => {
+                    // Safely increment index
                     currentTargetIndex = (currentTargetIndex + 1) % routeSequence.length;
                     updateHighlightedStop();
                     isPaused = false;
@@ -252,11 +247,9 @@ function startSmoothSimulation() {
                 updateEtaDisplay(targetStopName, distToStop, false);
             }
         }
-
         currentIndex++;
         updateHighlightedStop();
-        // refreshNearbyStops();
-    }, 1500); // 1500ms speed of bus
+    }, 1500); // 1500ms speed for exhibition
 }
 
 // --- 4. THE GEOFENCING LOGIC ---
@@ -377,7 +370,6 @@ let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; // Main Gate default
 
 function refreshNearbyStops() {
     const walkingSpeedKmH = 5; // Walking speed for the user
-    // Make sure this ID matches your index.html container!
     const nearbyList = document.getElementById("nearby-stops-list"); 
     
     if (!nearbyList) return;

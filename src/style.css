@@ -240,3 +240,7 @@ body {
 .toggle.active { background: var(--accent-blue); }
 .toggle::after { content: ''; position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: 0.3s; }
 .toggle.active::after { left: 20px; }
+
+.leaflet-marker-icon {
+    z-index: 9999 !important;
+}
