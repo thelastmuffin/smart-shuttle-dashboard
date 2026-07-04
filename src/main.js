@@ -19,8 +19,8 @@ const map = L.map('map', { zoomControl: false });
 const pegmanIcon = L.divIcon({
     html: `
       <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; z-index: 1000;">
-        <div class="user-marker-pulse" style="position: absolute; width: 24px; height: 24px; border-radius: 50%; background: rgba(59, 130, 246, 0.35);"></div>
-        <div style="font-size: 45px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.6));">🧍‍♂️</div>
+        <div class="user-marker-pulse" style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background: rgba(59, 130, 246, 0.45); z-index: -1;"></div>
+        <div style="font-size: 40px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.6));">🧍‍♂️</div>
       </div>
     `,
     className: 'clear-icon',
@@ -136,6 +136,45 @@ function updateHighlightedStop() {
     });
 }
 
+
+// --- ACCUMULATED ETA CALCULATOR ---
+function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
+    const campusBusSpeedKmH = 12; // Lowered to 12km/h to make Main Gate -> V7 approx 3 mins
+    const boardingDelayMinutes = 1; // 1 minute waiting time per stop
+
+    let totalDistanceKm = 0;
+    let intermediateStops = 0;
+
+    // 1. Distance from the bus's CURRENT physical location to the VERY NEXT stop
+    const nextStopName = routeSequence[currentTargetIndex];
+    const nextStopCoords = stopCoords[nextStopName];
+    totalDistanceKm += calculateDistance(currentLat, currentLng, nextStopCoords.lat, nextStopCoords.lng);
+
+    // 2. If the target stop is further down the line, loop through the route and add up the distances
+    let scanIndex = currentTargetIndex;
+    
+    while (scanIndex !== targetStopIndex) {
+        let currentLegName = routeSequence[scanIndex];
+        let nextLegIndex = (scanIndex + 1) % routeSequence.length;
+        let nextLegName = routeSequence[nextLegIndex];
+
+        // Add distance between these two stops
+        totalDistanceKm += calculateDistance(
+            stopCoords[currentLegName].lat, stopCoords[currentLegName].lng,
+            stopCoords[nextLegName].lat, stopCoords[nextLegName].lng
+        );
+        
+        intermediateStops++; // Add a stop penalty
+        scanIndex = nextLegIndex;
+    }
+
+    // 3. Final Math: (Driving Time) + (Boarding Delays)
+    const drivingTimeMins = (totalDistanceKm / campusBusSpeedKmH) * 60;
+    const totalEtaMins = Math.max(1, Math.round(drivingTimeMins + (intermediateStops * boardingDelayMinutes)));
+
+    return totalEtaMins;
+}
+
 function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
     if (!targetStopName || !Number.isFinite(distanceKm)) {
         etaDisplay.innerText = "Waiting for GPS signal...";
@@ -143,16 +182,20 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
         return;
     }
 
-    if (isArriving || distanceKm < 0.02) {
+    if (isArriving || distanceKm < 0.05) {
         etaDisplay.innerText = `Arriving at ${targetStopName} Now!`;
         etaDisplay.style.color = "#10b981";
     } else {
-        const timeMinutes = Math.max(1, Math.round((distanceKm / 25) * 60));
+        // We use our new master ETA function to get the realistic time to the immediate next stop
+        let currentBusPos = simBusMarker ? simBusMarker.getLatLng() : { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
+        if (liveBusMarker) currentBusPos = liveBusMarker.getLatLng();
+
+        const timeMinutes = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
+        
         etaDisplay.innerText = `Next Stop: ${targetStopName} in ${timeMinutes} min`;
         etaDisplay.style.color = "#94a3b8";
     }
 }
-
 function startSmoothSimulation() {
     let currentIndex = 0;
     let isPaused = false;
@@ -330,11 +373,11 @@ navItems.forEach((item, index) => {
 });
 
 // --- 5. NEARBY STOPS LOGIC (PEGMAN ONLY) ---
-let currentLocation = { lat: 4.3856013, lng: 100.9789672 };
+let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; // Main Gate default
 
 function refreshNearbyStops() {
-    const averageSpeedKmH = 25;
-    const nearbyList = document.getElementById("nearby-stops-container"); // Make sure this matches your HTML ID
+    const walkingSpeedKmH = 5; // FIX: Pegman walks at 5 km/h, not 25 km/h!
+    const nearbyList = document.getElementById("nearest-stops-container"); 
     
     if (!nearbyList) return;
 
@@ -347,22 +390,18 @@ function refreshNearbyStops() {
             name: name, 
             distanceKm: distKm,
             distMeters: Math.round(distKm * 1000),
-            timeMinutes: Math.max(1, Math.round((distKm / averageSpeedKmH) * 60))
+            timeMinutes: Math.max(1, Math.round((distKm / walkingSpeedKmH) * 60))
         });
     });
 
     // 2. SORT the array by distance (closest first)
     allStops.sort((a, b) => a.distanceKm - b.distanceKm);
 
-    // 3. Slice the top 3 nearest
+    // 3. Slice the top 3 nearest stops to the user
     const top3Stops = allStops.slice(0, 3);
-    const now = new Date();
 
     // 4. Inject into HTML
     nearbyList.innerHTML = top3Stops.map((stop, index) => {
-        const etaTime = new Date(now.getTime() + stop.timeMinutes * 60000);
-        const etaLabel = etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
         // Remove border for the last item in the list
         const borderStyle = index === 2 ? "none" : "1px solid rgba(255,255,255,0.05)";
 
@@ -378,7 +417,7 @@ function refreshNearbyStops() {
                   </div>
               </div>
               <div style="text-align: right;">
-                  <div style="font-size: 14px; font-weight: bold;">Walk: ${stop.timeMinutes}m</div>
+                  <div style="font-size: 14px; font-weight: bold;">Walk: ${stop.timeMinutes} min</div>
               </div>
             </div>
         `;
@@ -386,7 +425,6 @@ function refreshNearbyStops() {
 }
 
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
-// Places a blue pin at the Main Gate by default
 const userMarker = L.marker([currentLocation.lat, currentLocation.lng], { 
     draggable: true, 
     icon: pegmanIcon 
@@ -394,12 +432,14 @@ const userMarker = L.marker([currentLocation.lat, currentLocation.lng], {
 
 userMarker.bindPopup("<b>Exhibition Mode</b><br>Drag me to find the nearest stop!").openPopup();
 
+// When the user drops the Pegman, update the coordinates and refresh the list
 userMarker.on('dragend', function (event) {
     const userPos = event.target.getLatLng();
     currentLocation = { lat: userPos.lat, lng: userPos.lng };
     refreshNearbyStops();
 });
 
+// Run once on load to populate the initial list
 refreshNearbyStops();
 
 // --- LIVE CLOCK ---
@@ -407,7 +447,8 @@ function updateTime() {
     const now = new Date();
     // Formats time as HH:MM (e.g., 14:30)
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('live-time').innerText = timeString;
+    const liveTimeEl = document.getElementById('live-time');
+    if (liveTimeEl) liveTimeEl.innerText = timeString;
 }
 setInterval(updateTime, 1000);
 updateTime(); // Run immediately on load
