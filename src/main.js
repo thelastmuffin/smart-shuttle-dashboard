@@ -329,7 +329,7 @@ navItems.forEach((item, index) => {
     });
 });
 
-// Remove getReferencePosition entirely. We want the Nearby card to ONLY care about the Pegman!
+// --- 5. NEARBY STOPS LOGIC (PEGMAN ONLY) ---
 let currentLocation = { lat: 4.3856013, lng: 100.9789672 };
 
 function refreshNearbyStops() {
@@ -351,7 +351,7 @@ function refreshNearbyStops() {
         });
     });
 
-    // 2. SORT the array by distance (closest first) - You were missing this!
+    // 2. SORT the array by distance (closest first)
     allStops.sort((a, b) => a.distanceKm - b.distanceKm);
 
     // 3. Slice the top 3 nearest
@@ -385,73 +385,13 @@ function refreshNearbyStops() {
     }).join("");
 }
 
-function updateNearbyStopInfo(lat, lng, mode = "distance") {
-    const averageSpeedKmH = 25;
-    const nearbyList = document.getElementById("nearby-stops-list");
-
-    if (!nearbyList) return;
-
-    const stopNames = mode === "bus"
-        ? [...new Set(routeSequence.slice(currentTargetIndex).concat(routeSequence.slice(0, currentTargetIndex)))]
-        : Object.keys(stopCoords);
-
-    const stopEntries = stopNames
-        .map((name) => {
-            const coords = stopCoords[name];
-            if (!coords) return null;
-
-            const distToStop = calculateDistance(lat, lng, coords.lat, coords.lng);
-            const distMeters = Math.round(distToStop * 1000);
-            const directMinutes = Math.max(1, Math.round((distToStop / averageSpeedKmH) * 60));
-
-            return {
-                name,
-                distMeters,
-                timeMinutes: directMinutes
-            };
-        })
-        .filter(Boolean)
-        .slice(0, 3);
-
-    const now = new Date();
-
-    nearbyList.innerHTML = stopEntries.map(({ name, distMeters, timeMinutes }) => {
-        const etaTime = new Date(now.getTime() + timeMinutes * 60000);
-        const etaLabel = etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const etaText = mode === "bus"
-            ? `Arrive ${etaLabel}`
-            : `${etaLabel}`;
-
-        return `
-            <div class="ui-card nearby-stop-card">
-              <div class="icon-circle">📍</div>
-              <div class="nearby-stop-info">
-                <h4>${name}</h4>
-                <p>${distMeters} meters away</p>
-              </div>
-              <div class="nearby-stop-time">
-                <div>${etaText}</div>
-                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${timeMinutes} min</div>
-              </div>
-            </div>
-        `;
-    }).join("");
-}
-
-let currentLocation = { lat: 4.3856013, lng: 100.9789672 };
-
-function refreshNearbyStops() {
-    const reference = getReferencePosition();
-    updateNearbyStopInfo(reference.lat, reference.lng, "bus");
-}
-
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
 // Places a blue pin at the Main Gate by default
-// Replace your current userMarker definition with this:
 const userMarker = L.marker([currentLocation.lat, currentLocation.lng], { 
     draggable: true, 
     icon: pegmanIcon 
 }).addTo(map);
+
 userMarker.bindPopup("<b>Exhibition Mode</b><br>Drag me to find the nearest stop!").openPopup();
 
 userMarker.on('dragend', function (event) {
