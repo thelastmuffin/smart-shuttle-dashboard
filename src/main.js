@@ -255,7 +255,7 @@ function startSmoothSimulation() {
 
         currentIndex++;
         updateHighlightedStop();
-        refreshNearbyStops();
+        // refreshNearbyStops();
     }, 1500); // 1500ms speed of bus
 }
 
@@ -341,7 +341,7 @@ onValue(busLocationRef, (snapshot) => {
     
     // --- 5. Calculate ETA & Update UI ---
     updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
-    refreshNearbyStops();
+    // refreshNearbyStops();
 
   } else {
     etaDisplay.innerText = "Bus Offline";
