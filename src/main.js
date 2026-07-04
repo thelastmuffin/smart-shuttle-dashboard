@@ -19,7 +19,7 @@ const map = L.map('map', { zoomControl: false });
 const pegmanIcon = L.divIcon({
     html: `
       <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; z-index: 1000;">
-        <div class="user-marker-pulse" style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background: rgba(59, 130, 246, 0.45); z-index: -1;"></div>
+        <div class="user-marker-pulse" style="position: absolute; width: 64px; height: 64px; border-radius: 50%; background: rgba(59, 130, 246, 0.45); z-index: -1;"></div>
         <div style="font-size: 40px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.6));">🧍‍♂️</div>
       </div>
     `,
@@ -139,18 +139,18 @@ function updateHighlightedStop() {
 
 // --- ACCUMULATED ETA CALCULATOR ---
 function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
-    const campusBusSpeedKmH = 12; // Lowered to 12km/h to make Main Gate -> V7 approx 3 mins
-    const boardingDelayMinutes = 1; // 1 minute waiting time per stop
+    const campusBusSpeedKmH = 10; // Dropped to 10km/h for accurate campus traffic mapping
+    const boardingDelayMinutes = 1; // 1 minute of dwell time per stop
 
     let totalDistanceKm = 0;
     let intermediateStops = 0;
 
-    // 1. Distance from the bus's CURRENT physical location to the VERY NEXT stop
+    // 1. Distance to the VERY NEXT immediate stop
     const nextStopName = routeSequence[currentTargetIndex];
     const nextStopCoords = stopCoords[nextStopName];
     totalDistanceKm += calculateDistance(currentLat, currentLng, nextStopCoords.lat, nextStopCoords.lng);
 
-    // 2. If the target stop is further down the line, loop through the route and add up the distances
+    // 2. Loop through the sequence and accumulate distance & boarding delays for stops further down the line
     let scanIndex = currentTargetIndex;
     
     while (scanIndex !== targetStopIndex) {
@@ -158,13 +158,13 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
         let nextLegIndex = (scanIndex + 1) % routeSequence.length;
         let nextLegName = routeSequence[nextLegIndex];
 
-        // Add distance between these two stops
+        // Add physical distance between these two intermediate stops
         totalDistanceKm += calculateDistance(
             stopCoords[currentLegName].lat, stopCoords[currentLegName].lng,
             stopCoords[nextLegName].lat, stopCoords[nextLegName].lng
         );
         
-        intermediateStops++; // Add a stop penalty
+        intermediateStops++; // Add a stop penalty for having to open the doors here
         scanIndex = nextLegIndex;
     }
 
@@ -256,7 +256,7 @@ function startSmoothSimulation() {
         currentIndex++;
         updateHighlightedStop();
         refreshNearbyStops();
-    }, 500);
+    }, 1500); // 1500ms speed of bus
 }
 
 // --- 4. THE GEOFENCING LOGIC ---
@@ -376,14 +376,15 @@ navItems.forEach((item, index) => {
 let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; // Main Gate default
 
 function refreshNearbyStops() {
-    const walkingSpeedKmH = 5; // FIX: Pegman walks at 5 km/h, not 25 km/h!
-    const nearbyList = document.getElementById("nearest-stops-container"); 
+    const walkingSpeedKmH = 5; // Walking speed for the user
+    // Make sure this ID matches your index.html container!
+    const nearbyList = document.getElementById("nearby-stops-list"); 
     
     if (!nearbyList) return;
 
     let allStops = [];
 
-    // 1. Calculate distance from PEGMAN to EVERY stop
+    // 1. Calculate true geometric distance from PEGMAN to EVERY stop
     Object.entries(stopCoords).forEach(([name, coords]) => {
         const distKm = calculateDistance(currentLocation.lat, currentLocation.lng, coords.lat, coords.lng);
         allStops.push({ 
@@ -399,25 +400,23 @@ function refreshNearbyStops() {
 
     // 3. Slice the top 3 nearest stops to the user
     const top3Stops = allStops.slice(0, 3);
+    const now = new Date();
 
-    // 4. Inject into HTML
-    nearbyList.innerHTML = top3Stops.map((stop, index) => {
-        // Remove border for the last item in the list
-        const borderStyle = index === 2 ? "none" : "1px solid rgba(255,255,255,0.05)";
+    // 4. Inject into HTML using your updated UI Card classes
+    nearbyList.innerHTML = top3Stops.map((stop) => {
+        const etaTime = new Date(now.getTime() + stop.timeMinutes * 60000);
+        const etaLabel = etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         return `
-            <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; margin-bottom: 10px; border-bottom: ${borderStyle};">
-              <div style="display: flex; align-items: center; gap: 12px;">
-                  <div class="icon-circle" style="width: 32px; height: 32px; background: rgba(59, 130, 246, 0.2); color: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">
-                    ${index + 1}
-                  </div>
-                  <div>
-                    <h4 style="margin: 0; font-size: 15px;">${stop.name}</h4>
-                    <p style="margin: 0; font-size: 12px; color: var(--text-muted);">${stop.distMeters} meters away</p>
-                  </div>
+            <div class="ui-card nearby-stop-card">
+              <div class="icon-circle">📍</div>
+              <div class="nearby-stop-info">
+                <h4>${stop.name}</h4>
+                <p>${stop.distMeters} meters away</p>
               </div>
-              <div style="text-align: right;">
-                  <div style="font-size: 14px; font-weight: bold;">Walk: ${stop.timeMinutes} min</div>
+              <div class="nearby-stop-time">
+                <div>Walk: ${stop.timeMinutes} min</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Arrive ${etaLabel}</div>
               </div>
             </div>
         `;
