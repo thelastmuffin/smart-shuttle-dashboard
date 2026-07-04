@@ -191,19 +191,23 @@ function startSmoothSimulation() {
         // 3. Exhibition ETA & Stop Logic
         const targetStopName = routeSequence[currentTargetIndex];
         const targetCoords = stopCoords[targetStopName];
-        const distToStop = calculateDistance(nextCoord.lat, nextCoord.lng, targetCoords.lat, targetCoords.lng);
+        
+        if (targetCoords) {
+            const distToStop = calculateDistance(nextCoord.lat, nextCoord.lng, targetCoords.lat, targetCoords.lng);
 
-        if (distToStop < 0.02) {
-            isPaused = true;
-            updateEtaDisplay(targetStopName, distToStop, true);
+            // INCREASED RADIUS TO 0.05 (50 meters) so the bus doesn't accidentally skip the stop!
+            if (distToStop < 0.05) {
+                isPaused = true;
+                updateEtaDisplay(targetStopName, distToStop, true);
 
-            setTimeout(() => {
-                currentTargetIndex = (currentTargetIndex + 1) % routeSequence.length;
-                updateHighlightedStop();
-                isPaused = false;
-            }, 3000);
-        } else {
-            updateEtaDisplay(targetStopName, distToStop, false);
+                setTimeout(() => {
+                    currentTargetIndex = (currentTargetIndex + 1) % routeSequence.length;
+                    updateHighlightedStop();
+                    isPaused = false;
+                }, 3000);
+            } else {
+                updateEtaDisplay(targetStopName, distToStop, false);
+            }
         }
 
         currentIndex++;
@@ -325,18 +329,60 @@ navItems.forEach((item, index) => {
     });
 });
 
-function getReferencePosition() {
-    if (simBusMarker) {
-        const busPos = simBusMarker.getLatLng();
-        return { lat: busPos.lat, lng: busPos.lng };
-    }
+// Remove getReferencePosition entirely. We want the Nearby card to ONLY care about the Pegman!
+let currentLocation = { lat: 4.3856013, lng: 100.9789672 };
 
-    if (liveBusMarker) {
-        const busPos = liveBusMarker.getLatLng();
-        return { lat: busPos.lat, lng: busPos.lng };
-    }
+function refreshNearbyStops() {
+    const averageSpeedKmH = 25;
+    const nearbyList = document.getElementById("nearby-stops-container"); // Make sure this matches your HTML ID
+    
+    if (!nearbyList) return;
 
-    return currentLocation;
+    let allStops = [];
+
+    // 1. Calculate distance from PEGMAN to EVERY stop
+    Object.entries(stopCoords).forEach(([name, coords]) => {
+        const distKm = calculateDistance(currentLocation.lat, currentLocation.lng, coords.lat, coords.lng);
+        allStops.push({ 
+            name: name, 
+            distanceKm: distKm,
+            distMeters: Math.round(distKm * 1000),
+            timeMinutes: Math.max(1, Math.round((distKm / averageSpeedKmH) * 60))
+        });
+    });
+
+    // 2. SORT the array by distance (closest first) - You were missing this!
+    allStops.sort((a, b) => a.distanceKm - b.distanceKm);
+
+    // 3. Slice the top 3 nearest
+    const top3Stops = allStops.slice(0, 3);
+    const now = new Date();
+
+    // 4. Inject into HTML
+    nearbyList.innerHTML = top3Stops.map((stop, index) => {
+        const etaTime = new Date(now.getTime() + stop.timeMinutes * 60000);
+        const etaLabel = etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        // Remove border for the last item in the list
+        const borderStyle = index === 2 ? "none" : "1px solid rgba(255,255,255,0.05)";
+
+        return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; margin-bottom: 10px; border-bottom: ${borderStyle};">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                  <div class="icon-circle" style="width: 32px; height: 32px; background: rgba(59, 130, 246, 0.2); color: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                    ${index + 1}
+                  </div>
+                  <div>
+                    <h4 style="margin: 0; font-size: 15px;">${stop.name}</h4>
+                    <p style="margin: 0; font-size: 12px; color: var(--text-muted);">${stop.distMeters} meters away</p>
+                  </div>
+              </div>
+              <div style="text-align: right;">
+                  <div style="font-size: 14px; font-weight: bold;">Walk: ${stop.timeMinutes}m</div>
+              </div>
+            </div>
+        `;
+    }).join("");
 }
 
 function updateNearbyStopInfo(lat, lng, mode = "distance") {
