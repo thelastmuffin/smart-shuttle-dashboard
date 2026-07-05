@@ -97,7 +97,28 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
       iconSize: [16, 16],
       iconAnchor: [8, 8]
     })
-  }).addTo(map).bindPopup(`<b>${displayName}</b>`);
+  }).addTo(map);
+
+  // THE FIX: Calculate live ETA when the stop is clicked!
+  marker.on('click', () => {
+      let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
+      if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
+      if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
+      
+      const targetRouteIndex = getNextBusStopIndex(name);
+      const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
+      const m = Math.floor(rawMins);
+      const s = Math.floor((rawMins - m) * 60);
+      
+      marker.bindPopup(`
+        <div style="text-align:center; font-family: system-ui, sans-serif;">
+            <b style="font-size:14px; color:#1e293b;">${displayName}</b><br>
+            <div style="margin-top:4px; font-size:13px; color:#3b82f6; font-weight:bold; background:#eff6ff; padding:4px 8px; border-radius:6px; border: 1px solid #bfdbfe;">
+                Bus ETA: ${m}m ${s}s
+            </div>
+        </div>
+      `).openPopup();
+  });
 
   stopMarkers[name] = marker;
 });
@@ -216,7 +237,7 @@ function startSmoothSimulation() {
     
     if (!simBusMarker) {
         simBusMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {icon: gpsArrowIcon}).addTo(map)
-            .on('click', openLiveSchedulePanel); // <-- UPDATED THIS LINE
+            .on('click', () => openLiveSchedulePanel('campus')); // <-- UPDATED
     }
 
     setInterval(() => {
@@ -325,7 +346,7 @@ onValue(busLocationRef, (snapshot) => {
     // --- 2. Move the Live Bus Marker ---
     if (liveBusMarker === null) {
         liveBusMarker = L.marker([data.lat, data.lng]).addTo(map)
-            .on('click', openLiveSchedulePanel); // <-- UPDATED THIS LINE
+            .on('click', () => openLiveSchedulePanel('campus')); // <-- UPDATED
     } else {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
@@ -485,141 +506,71 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime(); // Run immediately on load
 
-// --- MAP RECENTER BUTTON (CUSTOM LEAFLET CONTROL) ---
-const RecenterControl = L.Control.extend({
-    options: { position: 'bottomright' }, // Places it in the bottom right corner
-    
-    onAdd: function (map) {
-        // Create a standard leaflet button container
-        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-        container.style.backgroundColor = 'white';
-        container.style.width = '34px';
-        container.style.height = '34px';
-        container.style.cursor = 'pointer';
-        container.style.display = 'flex';
-        container.style.alignItems = 'center';
-        container.style.justifyContent = 'center';
-        container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.65)';
-        container.style.borderRadius = '4px';
-        
-        // Add a target icon emoji
-        container.innerHTML = `<span style="font-size: 18px;" title="Find My Location">🎯</span>`;
-
-        // When clicked, fly the map camera back to the Pegman's exact coordinates
-        container.onclick = function(e) {
-            e.preventDefault();
-            map.flyTo([currentLocation.lat, currentLocation.lng], 16, {
-                animate: true,
-                duration: 1.5 // 1.5 seconds smooth animation
-            });
-        }
-        
-        return container;
-    }
+// --- MAP RECENTER BUTTON (GUARANTEED VISIBLE OVERLAY) ---
+const recenterBtn = document.createElement('div');
+recenterBtn.innerHTML = '🎯';
+Object.assign(recenterBtn.style, {
+    position: 'absolute',
+    bottom: '90px', // High enough to clear any bottom navigation bars
+    right: '20px',
+    width: '45px',
+    height: '45px',
+    backgroundColor: 'white',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '24px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+    cursor: 'pointer',
+    zIndex: '9999' // Forces it to the very top layer!
 });
+recenterBtn.onclick = () => {
+    map.flyTo([currentLocation.lat, currentLocation.lng], 16, { animate: true, duration: 1.5 });
+};
+document.getElementById('map').appendChild(recenterBtn);
 
-// Add the button to the map
-map.addControl(new RecenterControl());
-
-// --- LIVE ROUTE SIDE PANEL (DARK MODE & BUS DETAILS) ---
-// 1. Inject the Dark Mode CSS styling
+// --- LIVE ROUTE SIDE PANEL (STATEFUL FOR MULTIPLE BUSES) ---
 const panelStyle = document.createElement('style');
 panelStyle.innerHTML = `
     #bus-side-panel {
-        position: fixed;
-        top: 0;
-        right: -380px; 
-        width: 350px; /* Slightly wider for the extra text */
-        height: 100vh;
-        background: #0f172a; /* Deep Slate Dark Mode Background */
-        box-shadow: -4px 0 25px rgba(0,0,0,0.5);
-        z-index: 99999;
-        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        display: flex;
-        flex-direction: column;
-        font-family: system-ui, -apple-system, sans-serif;
-        color: #f8fafc; /* Bright white text */
+        position: fixed; top: 0; right: -380px; width: 350px; height: 100vh;
+        background: #0f172a; box-shadow: -4px 0 25px rgba(0,0,0,0.5);
+        z-index: 99999; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex; flex-direction: column; font-family: system-ui, sans-serif; color: #f8fafc;
     }
     #bus-side-panel.open { right: 0; }
-    
-    .panel-header {
-        background: #1e293b; /* Slightly lighter header */
-        padding: 16px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid #334155;
-    }
-    .panel-header h2 { 
-        margin: 0; font-size: 18px; display: flex; align-items: baseline; gap: 8px; color: #f8fafc;
-    }
+    .panel-header { background: #1e293b; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+    .panel-header h2 { margin: 0; font-size: 18px; display: flex; align-items: baseline; gap: 8px; }
     .bus-plate { font-size: 13px; color: #94a3b8; font-weight: 500; }
-    
-    .close-btn { 
-        background: rgba(255,255,255,0.1); border: none; color: white; 
-        width: 32px; height: 32px; border-radius: 50%; 
-        cursor: pointer; font-weight: bold; transition: 0.2s;
-    }
-    .close-btn:hover { background: rgba(255,255,255,0.2); }
-
-    /* NEW: Bus Details Bar */
-    .bus-details-bar {
-        background: #162032;
-        padding: 12px 20px;
-        border-bottom: 1px solid #334155;
-        font-size: 13px;
-        color: #94a3b8;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
+    .close-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-weight: bold; }
+    .bus-details-bar { background: #162032; padding: 12px 20px; border-bottom: 1px solid #334155; font-size: 13px; color: #94a3b8; display: flex; flex-direction: column; gap: 6px; }
     .detail-row { display: flex; justify-content: space-between; align-items: center; }
-    .detail-row strong { color: #e2e8f0; }
-    .route-badge { background: rgba(59, 130, 246, 0.15); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; border: 1px solid rgba(59,130,246,0.3); }
-
+    .route-badge { padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; border: 1px solid; }
     .panel-content { flex: 1; overflow-y: auto; padding: 15px 20px; }
-    
-    .route-stop-item {
-        display: flex; align-items: center; padding: 14px 0;
-        border-bottom: 1px solid #1e293b;
-    }
-    .route-stop-item:last-child { border-bottom: none; }
-    
-    /* Dark Mode Dots */
-    .stop-dot {
-        width: 14px; height: 14px; border-radius: 50%;
-        background: #475569; margin-right: 15px;
-        border: 3px solid #0f172a; box-shadow: 0 0 0 2px #475569;
-    }
+    .route-stop-item { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid #1e293b; }
+    .stop-dot { width: 14px; height: 14px; border-radius: 50%; background: #475569; margin-right: 15px; border: 3px solid #0f172a; box-shadow: 0 0 0 2px #475569; }
     .stop-dot.next-stop { background: #f87171; box-shadow: 0 0 0 2px #f87171; }
-    
     .stop-info { flex: 1; }
     .stop-name { font-weight: 600; font-size: 14.5px; color: #f1f5f9; }
     .stop-eta { font-size: 13px; color: #94a3b8; margin-top: 3px; }
-    
-    /* Dark Mode Time Badge */
-    .stop-time-badge {
-        background: #1e293b; border: 1px solid #334155;
-        padding: 4px 8px; border-radius: 6px;
-        font-size: 12px; font-weight: 600; color: #60a5fa;
-    }
+    .stop-time-badge { background: #1e293b; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #60a5fa; }
 `;
 document.head.appendChild(panelStyle);
 
-// 2. Inject the HTML Structure (With Bus & Driver Details)
 const panelHtml = `
     <div id="bus-side-panel">
         <div class="panel-header">
-            <h2>🚌 Shuttle 1 <span class="bus-plate">ALM 4021</span></h2>
+            <h2 id="panel-bus-title">🚌 Shuttle 1 <span class="bus-plate">ALM 4021</span></h2>
             <button class="close-btn" id="close-panel-btn">✕</button>
         </div>
         <div class="bus-details-bar">
             <div class="detail-row">
-                <span>Driver: <strong>Ahmad F.</strong></span>
-                <span>⭐ <strong>4.9</strong> <span style="opacity:0.7">(142)</span></span>
+                <span>Driver: <strong style="color:white;" id="panel-driver-name">Ahmad F.</strong></span>
+                <span>⭐ <strong style="color:white;">4.9</strong></span>
             </div>
             <div class="detail-row" style="margin-top: 2px;">
-                <span>Route: <span class="route-badge">PMMD ➔ CHANCELLOR LOOP</span></span>
+                <span>Route: <span id="panel-route-badge" class="route-badge">WITHIN UTP CAMPUS</span></span>
             </div>
         </div>
         <div class="panel-content" id="panel-stop-list"></div>
@@ -627,10 +578,10 @@ const panelHtml = `
 `;
 document.body.insertAdjacentHTML('beforeend', panelHtml);
 
-// 3. The Logic
 const sidePanel = document.getElementById('bus-side-panel');
 const panelStopList = document.getElementById('panel-stop-list');
 let panelUpdateInterval = null;
+let currentPanelBusType = 'campus'; // Tracks which bus we are viewing
 
 document.getElementById('close-panel-btn').addEventListener('click', () => sidePanel.classList.remove('open'));
 map.on('click', () => sidePanel.classList.remove('open'));
@@ -640,14 +591,26 @@ function updatePanelData() {
     if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
     if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
 
+    const isCampus = currentPanelBusType === 'campus';
     const now = new Date();
-    let listHTML = "";
 
+    // 1. DYNAMIC HEADER INFO
+    document.getElementById('panel-bus-title').innerHTML = isCampus ? '🚌 Shuttle 1 <span class="bus-plate">ALM 4021</span>' : '🚌 Shuttle 2 <span class="bus-plate">VAF 9091</span>';
+    document.getElementById('panel-driver-name').innerText = isCampus ? 'Ahmad F.' : 'Kamal R.';
+    
+    const badge = document.getElementById('panel-route-badge');
+    badge.innerText = isCampus ? 'WITHIN UTP CAMPUS' : 'SERI ISKANDAR';
+    badge.style.color = isCampus ? '#60a5fa' : '#f59e0b';
+    badge.style.backgroundColor = isCampus ? 'rgba(59, 130, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)';
+    badge.style.borderColor = isCampus ? 'rgba(59,130,246,0.3)' : 'rgba(245,158,11,0.3)';
+
+    // 2. LIST GENERATOR
+    let listHTML = "";
     for (let i = 0; i < routeSequence.length; i++) {
         const checkIndex = (currentTargetIndex + i) % routeSequence.length;
         const stopName = routeSequence[checkIndex];
         
-        if (stopName === "Chancellor Complex 2") continue; // Hide the ghost stop
+        if (stopName === "Chancellor Complex 2") continue; 
 
         const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, checkIndex);
         const m = Math.floor(rawMins);
@@ -658,16 +621,18 @@ function updatePanelData() {
         
         const displayName = stopName.replace(" 2", "");
         const isNextStop = (i === 0);
-        const dotClass = isNextStop ? "stop-dot next-stop" : "stop-dot";
+        const dotClass = (isNextStop && isCampus) ? "stop-dot next-stop" : "stop-dot";
 
-        // Dark-mode optimized red colors for the current target stop
-        const nameDisplay = isNextStop 
-            ? `${displayName} <span style="background:rgba(239, 68, 68, 0.2); color:#f87171; border: 1px solid rgba(239,68,68,0.3); font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold; letter-spacing:0.5px;">HEADING HERE</span>` 
+        // THE FIX: Hide ETAs for Seri Iskandar bus
+        const nameDisplay = (isNextStop && isCampus) 
+            ? `${displayName} <span style="background:rgba(239, 68, 68, 0.2); color:#f87171; border: 1px solid rgba(239,68,68,0.3); font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold;">HEADING HERE</span>` 
             : displayName;
             
-        const etaText = isNextStop 
-            ? `<span style="color:#f87171; font-weight:600;">Arriving in: ${m}m ${s}s</span>` 
-            : `ETA: ${m}m ${s}s`;
+        let etaText = `ETA: ${m}m ${s}s`;
+        if (isNextStop && isCampus) etaText = `<span style="color:#f87171; font-weight:600;">Arriving in: ${m}m ${s}s</span>`;
+        if (!isCampus) etaText = `<span style="color:#94a3b8;">Status: Standby</span>`;
+
+        const timeBadge = isCampus ? etaLabel : '--:--';
 
         listHTML += `
             <div class="route-stop-item">
@@ -676,25 +641,26 @@ function updatePanelData() {
                     <div class="stop-name">${nameDisplay}</div>
                     <div class="stop-eta">${etaText}</div>
                 </div>
-                <div class="stop-time-badge">${etaLabel}</div>
+                <div class="stop-time-badge" style="${!isCampus ? 'color:#475569; border-color:#1e293b;' : ''}">${timeBadge}</div>
             </div>
         `;
     }
     panelStopList.innerHTML = listHTML;
 }
 
-function openLiveSchedulePanel() {
+// Added the parameter requirement here!
+function openLiveSchedulePanel(busType) {
+    currentPanelBusType = busType;
     sidePanel.classList.add('open');
     updatePanelData(); 
     
     if (panelUpdateInterval) clearInterval(panelUpdateInterval);
-    panelUpdateInterval = setInterval(() => {
-        if (sidePanel.classList.contains('open')) {
-            updatePanelData();
-        } else {
-            clearInterval(panelUpdateInterval); 
-        }
-    }, 1000);
+    if (busType === 'campus') { // Only live-tick the seconds if it's the moving bus!
+        panelUpdateInterval = setInterval(() => {
+            if (sidePanel.classList.contains('open')) updatePanelData();
+            else clearInterval(panelUpdateInterval); 
+        }, 1000);
+    }
 }
 
 // --- STATIONARY SERI ISKANDAR BUS ---
@@ -716,14 +682,6 @@ const stationaryBusIcon = L.divIcon({
 });
 
 // 2. Place the marker and bind a styled popup
-const seriIskandarBus = L.marker([4.365577, 100.9803029], { icon: stationaryBusIcon })
+const seriIskandarBus = L.marker([4.365577, 100.9803029], { icon: gpsArrowIcon })
     .addTo(map)
-    .bindPopup(`
-        <div style="font-family: system-ui, -apple-system, sans-serif; text-align: center; min-width: 150px;">
-            <h4 style="margin: 0 0 4px 0; color: #1e293b; font-size: 15px;">🚌 Shuttle 2</h4>
-            <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">Status: <b>Standby / Stationary</b></div>
-            <div style="background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; border: 1px solid rgba(245,158,11,0.3);">
-                SERI ISKANDAR ROUTE
-            </div>
-        </div>
-    `);
+    .on('click', () => openLiveSchedulePanel('seri'));
