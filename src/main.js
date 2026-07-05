@@ -103,26 +103,24 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 let simCoordinates = [];
 let simActive = false;
 
-// Safely build the route waypoints, injecting an invisible via-point 
-// on the main ring road to fix the Chancellor Complex underpass issue.
+// Build the route waypoints cleanly
 const routeWaypoints = [];
-
 for (let i = 0; i < routeSequence.length; i++) {
     const stopName = routeSequence[i];
-    
-    // If the bus is leaving Block L and heading to Chancellor Complex...
-    if (stopName === "Chancellor Complex" && i > 0 && routeSequence[i - 1] === "Block L") {
-        // Safe intermediate point: The junction of the Village road and the Main Ring Road
-        routeWaypoints.push(L.latLng(4.3822009,100.9700432)); 
-    }
-    
-    // Add the actual physical bus stop to the array
     routeWaypoints.push(L.latLng(stopCoords[stopName].lat, stopCoords[stopName].lng));
 }
 
-// Now feed it into the routing engine
+// Now feed it into the routing engine using the "FOOT" profile!
 const routingControl = L.Routing.control({
     waypoints: routeWaypoints,
+    
+    // --- THE MAGIC FIX ---
+    // This forces the engine to ignore car traffic rules and medians
+    router: L.Routing.osrmv1({
+        serviceUrl: 'https://router.project-osrm.org/route/v1/foot'
+    }),
+    // ---------------------
+
     routeWhileDragging: false,
     addWaypoints: false,
     show: false,
