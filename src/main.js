@@ -113,7 +113,7 @@ for (let i = 0; i < routeSequence.length; i++) {
     // If the bus is leaving Block L and heading to Chancellor Complex...
     if (stopName === "Chancellor Complex" && i > 0 && routeSequence[i - 1] === "Block L") {
         // Safe intermediate point: The junction of the Village road and the Main Ring Road
-        routeWaypoints.push(L.latLng(4.384200, 100.972300)); 
+        routeWaypoints.push(L.latLng(4.3822009,100.9700432)); 
     }
     
     // Add the actual physical bus stop to the array
@@ -155,8 +155,8 @@ function updateHighlightedStop() {
 
 // --- ACCUMULATED ETA CALCULATOR ---
 function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
-    const campusBusSpeedKmH = 10; // Dropped to 10km/h for accurate campus traffic mapping
-    const boardingDelayMinutes = 1; // 1 minute of dwell time per stop
+    const campusBusSpeedKmH = 22; // Increased from 10 to 22 km/h for realistic campus driving
+    const boardingDelayMinutes = 0.3; // Lowered from 1 minute to ~18 seconds per stop
 
     let totalDistanceKm = 0;
     let intermediateStops = 0;
@@ -166,7 +166,7 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
     const nextStopCoords = stopCoords[nextStopName];
     totalDistanceKm += calculateDistance(currentLat, currentLng, nextStopCoords.lat, nextStopCoords.lng);
 
-    // 2. Loop through the sequence and accumulate distance & boarding delays for stops further down the line
+    // 2. Loop through the sequence and accumulate distance & boarding delays
     let scanIndex = currentTargetIndex;
     
     while (scanIndex !== targetStopIndex) {
@@ -180,7 +180,7 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
             stopCoords[nextLegName].lat, stopCoords[nextLegName].lng
         );
         
-        intermediateStops++; // Add a stop penalty for having to open the doors here
+        intermediateStops++; 
         scanIndex = nextLegIndex;
     }
 
