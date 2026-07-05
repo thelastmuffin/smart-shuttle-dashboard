@@ -190,14 +190,16 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
 
     const displayName = targetStopName.replace(" 2", ""); // Hide ghost stop name
 
-    if (isArriving || distanceKm < 0.05) {
+    // INCREASED to 0.08 (80 meters) so it doesn't accidentally skip stops!
+    if (isArriving || distanceKm < 0.08) { 
         etaDisplay.innerText = `Arriving at ${displayName} Now!`;
         etaDisplay.style.color = "#10b981";
     } else {
-        let currentBusPos = simBusMarker ? simBusMarker.getLatLng() : { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
-        if (liveBusMarker) currentBusPos = liveBusMarker.getLatLng();
+        // THE FIX: Strictly prioritize the moving simulation over stale Firebase data
+        let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
+        if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
+        if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
 
-        // Convert the exact decimal into Minutes and Seconds
         const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
@@ -206,6 +208,7 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
         etaDisplay.style.color = "#94a3b8";
     }
 }
+
 function startSmoothSimulation() {
     let currentIndex = 0;
     let isPaused = false;
@@ -242,7 +245,8 @@ function startSmoothSimulation() {
         if (targetCoords) {
             const distToStop = calculateDistance(nextCoord.lat, nextCoord.lng, targetCoords.lat, targetCoords.lng);
 
-            if (distToStop < 0.05) {
+            // INCREASED to 0.08 (80 meters) so it doesn't get stuck on the wrong stop!
+            if (distToStop < 0.08) {
                 isPaused = true;
                 updateEtaDisplay(targetStopName, distToStop, true);
 
@@ -397,8 +401,7 @@ function refreshNearbyStops() {
 
     // 1. Calculate true geometric distance from PEGMAN to EVERY stop
     Object.entries(stopCoords).forEach(([name, coords]) => {
-        // --- HIDE THE GHOST STOP SO IT DOESN'T SHOW UP TWICE ---
-        if (name === "Chancellor Complex 2") return; 
+        if (name === "Chancellor Complex 2") return; // Hide ghost stop
 
         const distKm = calculateDistance(currentLocation.lat, currentLocation.lng, coords.lat, coords.lng);
         allStops.push({ 
@@ -415,8 +418,10 @@ function refreshNearbyStops() {
     const top3Stops = allStops.slice(0, 3);
     const now = new Date();
 
-    let currentBusPos = simBusMarker ? simBusMarker.getLatLng() : { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
-    if (liveBusMarker) currentBusPos = liveBusMarker.getLatLng();
+    // THE FIX: Strictly prioritize the moving simulation over stale Firebase data
+    let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
+    if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
+    if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
 
     // 4. Inject into HTML with LIVE SECONDS
     nearbyList.innerHTML = top3Stops.map((stop) => {
@@ -424,7 +429,6 @@ function refreshNearbyStops() {
         const targetRouteIndex = getNextBusStopIndex(stop.name);
         const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
         
-        // Convert the decimal to Minutes and Seconds!
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
 
@@ -447,6 +451,7 @@ function refreshNearbyStops() {
         `;
     }).join("");
 }
+
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
 const userMarker = L.marker([currentLocation.lat, currentLocation.lng], { 
     draggable: true, 
