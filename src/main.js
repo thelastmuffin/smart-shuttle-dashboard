@@ -521,70 +521,106 @@ const RecenterControl = L.Control.extend({
 // Add the button to the map
 map.addControl(new RecenterControl());
 
-// --- LIVE ROUTE SIDE PANEL (SLIDE-OUT DRAWER) ---
-// 1. Inject the CSS styling
+// --- LIVE ROUTE SIDE PANEL (DARK MODE & BUS DETAILS) ---
+// 1. Inject the Dark Mode CSS styling
 const panelStyle = document.createElement('style');
 panelStyle.innerHTML = `
     #bus-side-panel {
         position: fixed;
         top: 0;
-        right: -380px; /* Hidden offscreen by default */
-        width: 340px;
+        right: -380px; 
+        width: 350px; /* Slightly wider for the extra text */
         height: 100vh;
-        background: #ffffff;
-        box-shadow: -4px 0 25px rgba(0,0,0,0.25);
+        background: #0f172a; /* Deep Slate Dark Mode Background */
+        box-shadow: -4px 0 25px rgba(0,0,0,0.5);
         z-index: 99999;
         transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         flex-direction: column;
         font-family: system-ui, -apple-system, sans-serif;
+        color: #f8fafc; /* Bright white text */
     }
     #bus-side-panel.open { right: 0; }
+    
     .panel-header {
-        background: #3b82f6;
-        color: white;
-        padding: 20px;
+        background: #1e293b; /* Slightly lighter header */
+        padding: 16px 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-bottom: 1px solid #334155;
     }
-    .panel-header h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;}
+    .panel-header h2 { 
+        margin: 0; font-size: 18px; display: flex; align-items: baseline; gap: 8px; color: #f8fafc;
+    }
+    .bus-plate { font-size: 13px; color: #94a3b8; font-weight: 500; }
+    
     .close-btn { 
-        background: rgba(255,255,255,0.2); border: none; color: white; 
+        background: rgba(255,255,255,0.1); border: none; color: white; 
         width: 32px; height: 32px; border-radius: 50%; 
         cursor: pointer; font-weight: bold; transition: 0.2s;
     }
-    .close-btn:hover { background: rgba(255,255,255,0.4); }
-    .panel-content { flex: 1; overflow-y: auto; padding: 15px; }
+    .close-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* NEW: Bus Details Bar */
+    .bus-details-bar {
+        background: #162032;
+        padding: 12px 20px;
+        border-bottom: 1px solid #334155;
+        font-size: 13px;
+        color: #94a3b8;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; }
+    .detail-row strong { color: #e2e8f0; }
+    .route-badge { background: rgba(59, 130, 246, 0.15); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; border: 1px solid rgba(59,130,246,0.3); }
+
+    .panel-content { flex: 1; overflow-y: auto; padding: 15px 20px; }
+    
     .route-stop-item {
-        display: flex; align-items: center; padding: 12px 0;
-        border-bottom: 1px solid #f1f5f9;
+        display: flex; align-items: center; padding: 14px 0;
+        border-bottom: 1px solid #1e293b;
     }
     .route-stop-item:last-child { border-bottom: none; }
+    
+    /* Dark Mode Dots */
     .stop-dot {
         width: 14px; height: 14px; border-radius: 50%;
-        background: #cbd5e1; margin-right: 15px;
-        border: 3px solid white; box-shadow: 0 0 0 2px #cbd5e1;
+        background: #475569; margin-right: 15px;
+        border: 3px solid #0f172a; box-shadow: 0 0 0 2px #475569;
     }
-    .stop-dot.next-stop { background: #ef4444; box-shadow: 0 0 0 2px #ef4444; }
+    .stop-dot.next-stop { background: #f87171; box-shadow: 0 0 0 2px #f87171; }
+    
     .stop-info { flex: 1; }
-    .stop-name { font-weight: 600; font-size: 14.5px; color: #1e293b; }
-    .stop-eta { font-size: 13px; color: #64748b; margin-top: 3px; }
+    .stop-name { font-weight: 600; font-size: 14.5px; color: #f1f5f9; }
+    .stop-eta { font-size: 13px; color: #94a3b8; margin-top: 3px; }
+    
+    /* Dark Mode Time Badge */
     .stop-time-badge {
-        background: #f8fafc; border: 1px solid #e2e8f0;
+        background: #1e293b; border: 1px solid #334155;
         padding: 4px 8px; border-radius: 6px;
-        font-size: 12px; font-weight: 600; color: #3b82f6;
+        font-size: 12px; font-weight: 600; color: #60a5fa;
     }
 `;
 document.head.appendChild(panelStyle);
 
-// 2. Inject the HTML Structure
+// 2. Inject the HTML Structure (With Bus & Driver Details)
 const panelHtml = `
     <div id="bus-side-panel">
         <div class="panel-header">
-            <h2>🚌 Live Schedule</h2>
+            <h2>🚌 Shuttle 1 <span class="bus-plate">ALM 4021</span></h2>
             <button class="close-btn" id="close-panel-btn">✕</button>
+        </div>
+        <div class="bus-details-bar">
+            <div class="detail-row">
+                <span>Driver: <strong>Ahmad F.</strong></span>
+                <span>⭐ <strong>4.9</strong> <span style="opacity:0.7">(142)</span></span>
+            </div>
+            <div class="detail-row" style="margin-top: 2px;">
+                <span>Route: <span class="route-badge">PMMD ➔ CHANCELLOR LOOP</span></span>
+            </div>
         </div>
         <div class="panel-content" id="panel-stop-list"></div>
     </div>
@@ -596,7 +632,6 @@ const sidePanel = document.getElementById('bus-side-panel');
 const panelStopList = document.getElementById('panel-stop-list');
 let panelUpdateInterval = null;
 
-// Close the panel when 'X' is clicked, or when the map is clicked
 document.getElementById('close-panel-btn').addEventListener('click', () => sidePanel.classList.remove('open'));
 map.on('click', () => sidePanel.classList.remove('open'));
 
@@ -608,14 +643,12 @@ function updatePanelData() {
     const now = new Date();
     let listHTML = "";
 
-    // Loop through the sequence starting from the upcoming stop
     for (let i = 0; i < routeSequence.length; i++) {
         const checkIndex = (currentTargetIndex + i) % routeSequence.length;
         const stopName = routeSequence[checkIndex];
         
         if (stopName === "Chancellor Complex 2") continue; // Hide the ghost stop
 
-        // Calculate ETA
         const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, checkIndex);
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
@@ -627,13 +660,13 @@ function updatePanelData() {
         const isNextStop = (i === 0);
         const dotClass = isNextStop ? "stop-dot next-stop" : "stop-dot";
 
-        // --- THE FIX: Highlight the current destination and keep the countdown! ---
+        // Dark-mode optimized red colors for the current target stop
         const nameDisplay = isNextStop 
-            ? `${displayName} <span style="background:#fee2e2; color:#ef4444; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold; letter-spacing:0.5px;">HEADING HERE</span>` 
+            ? `${displayName} <span style="background:rgba(239, 68, 68, 0.2); color:#f87171; border: 1px solid rgba(239,68,68,0.3); font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold; letter-spacing:0.5px;">HEADING HERE</span>` 
             : displayName;
             
         const etaText = isNextStop 
-            ? `<span style="color:#ef4444; font-weight:600;">Arriving in: ${m}m ${s}s</span>` 
+            ? `<span style="color:#f87171; font-weight:600;">Arriving in: ${m}m ${s}s</span>` 
             : `ETA: ${m}m ${s}s`;
 
         listHTML += `
@@ -652,15 +685,45 @@ function updatePanelData() {
 
 function openLiveSchedulePanel() {
     sidePanel.classList.add('open');
-    updatePanelData(); // Populate immediately
+    updatePanelData(); 
     
-    // Start a timer to live-update the seconds while the panel is open!
     if (panelUpdateInterval) clearInterval(panelUpdateInterval);
     panelUpdateInterval = setInterval(() => {
         if (sidePanel.classList.contains('open')) {
             updatePanelData();
         } else {
-            clearInterval(panelUpdateInterval); // Stop calculating if closed
+            clearInterval(panelUpdateInterval); 
         }
     }, 1000);
 }
+
+// --- STATIONARY SERI ISKANDAR BUS ---
+// 1. Create a distinct Amber/Orange icon for the off-campus bus
+const stationaryBusIcon = L.divIcon({
+    html: `<div style="
+        width: 34px; height: 34px; 
+        background: #f59e0b; /* Amber background */
+        border: 2px solid white; 
+        border-radius: 50%; 
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+        font-size: 18px;
+    ">🚌</div>`,
+    className: 'clear-icon',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -20]
+});
+
+// 2. Place the marker and bind a styled popup
+const seriIskandarBus = L.marker([4.365577, 100.9803029], { icon: stationaryBusIcon })
+    .addTo(map)
+    .bindPopup(`
+        <div style="font-family: system-ui, -apple-system, sans-serif; text-align: center; min-width: 150px;">
+            <h4 style="margin: 0 0 4px 0; color: #1e293b; font-size: 15px;">🚌 Shuttle 2</h4>
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">Status: <b>Standby / Stationary</b></div>
+            <div style="background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; border: 1px solid rgba(245,158,11,0.3);">
+                SERI ISKANDAR ROUTE
+            </div>
+        </div>
+    `);
