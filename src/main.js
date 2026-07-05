@@ -215,7 +215,8 @@ function startSmoothSimulation() {
     let isPaused = false;
     
     if (!simBusMarker) {
-        simBusMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {icon: gpsArrowIcon}).addTo(map);
+        simBusMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {icon: gpsArrowIcon}).addTo(map)
+            .bindPopup(`<div style="text-align:center;"><b>🚌 Shuttle Bus 1</b><br><span style="font-size:12px; color:gray;">Route: PMMD ➔ Chancellor ➔ PMMD</span></div>`);
     }
 
     setInterval(() => {
@@ -246,17 +247,18 @@ function startSmoothSimulation() {
         if (targetCoords) {
             const distToStop = calculateDistance(nextCoord.lat, nextCoord.lng, targetCoords.lat, targetCoords.lng);
 
-            // INCREASED to 0.08 (80 meters) so it doesn't get stuck on the wrong stop!
-            if (distToStop < 0.08) {
+            // Decreased to 0.03 (30 meters) so the bus gets visually closer to the pin!
+            if (distToStop < 0.03) {
                 isPaused = true;
                 updateEtaDisplay(targetStopName, distToStop, true);
 
+                // Increased from 3000 to 7000 (7 seconds) so it waits longer at the station
                 setTimeout(() => {
                     // Safely increment index
                     currentTargetIndex = (currentTargetIndex + 1) % routeSequence.length;
                     updateHighlightedStop();
                     isPaused = false;
-                }, 3000);
+                }, 7000);
             } else {
                 updateEtaDisplay(targetStopName, distToStop, false);
             }
@@ -322,7 +324,8 @@ onValue(busLocationRef, (snapshot) => {
 
     // --- 2. Move the Live Bus Marker ---
     if (liveBusMarker === null) {
-        liveBusMarker = L.marker([data.lat, data.lng]).addTo(map);
+        liveBusMarker = L.marker([data.lat, data.lng]).addTo(map)
+            .bindPopup(`<div style="text-align:center;"><b>🚌 Shuttle Bus 1 (Live)</b><br><span style="font-size:12px; color:gray;">Route: PMMD ➔ Chancellor ➔ PMMD</span></div>`);
     } else {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
@@ -481,3 +484,39 @@ function updateTime() {
 }
 setInterval(updateTime, 1000);
 updateTime(); // Run immediately on load
+
+// --- MAP RECENTER BUTTON (CUSTOM LEAFLET CONTROL) ---
+const RecenterControl = L.Control.extend({
+    options: { position: 'bottomright' }, // Places it in the bottom right corner
+    
+    onAdd: function (map) {
+        // Create a standard leaflet button container
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+        container.style.backgroundColor = 'white';
+        container.style.width = '34px';
+        container.style.height = '34px';
+        container.style.cursor = 'pointer';
+        container.style.display = 'flex';
+        container.style.alignItems = 'center';
+        container.style.justifyContent = 'center';
+        container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.65)';
+        container.style.borderRadius = '4px';
+        
+        // Add a target icon emoji
+        container.innerHTML = `<span style="font-size: 18px;" title="Find My Location">🎯</span>`;
+
+        // When clicked, fly the map camera back to the Pegman's exact coordinates
+        container.onclick = function(e) {
+            e.preventDefault();
+            map.flyTo([currentLocation.lat, currentLocation.lng], 16, {
+                animate: true,
+                duration: 1.5 // 1.5 seconds smooth animation
+            });
+        }
+        
+        return container;
+    }
+});
+
+// Add the button to the map
+map.addControl(new RecenterControl());
