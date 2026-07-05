@@ -518,72 +518,30 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime(); // Run immediately on load
 
-// --- EMERGENCY UI FIX & MODE TOGGLE OVERLAYS ---
-// 1. Create a brand new wrapper
-const bannerWrapper = document.createElement('div');
-Object.assign(bannerWrapper.style, {
-    position: 'fixed', // Fixed keeps it glued to the screen viewport
-    top: '20px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    backgroundColor: 'white',
-    padding: '12px 60px 12px 20px', // Extra right padding for the button
-    borderRadius: '12px',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-    zIndex: '99999', 
-    width: '90%',
-    maxWidth: '400px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: 'system-ui, sans-serif'
-});
+// --- MODE TOGGLE & MAP CONTROLS ---
+// 1. Gently inject the Recenter Button inside your ORIGINAL banner
+const topBanner = document.getElementById('eta-display').parentElement;
+topBanner.style.position = 'relative'; // Ensure the button stays inside the banner bounds
+topBanner.style.paddingRight = '50px'; // Add a little padding so text doesn't hit the button
 
-// 2. Identify the original parent before we move the text
-const oldParent = etaDisplay.parentElement;
-
-// 3. STRIP ALL ORIGINAL CSS FROM THE ETA DISPLAY!
-// This stops it from drawing its own "second bar" and forces it to just be purely text.
-etaDisplay.style.cssText = `
-    position: static !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: auto !important;
-    height: auto !important;
-    transform: none !important;
-    left: auto !important;
-    top: auto !important;
-`;
-
-// 4. Move the wrapper directly to the body, and put the text inside it
-document.body.appendChild(bannerWrapper);
-bannerWrapper.appendChild(etaDisplay);
-
-// 5. The Ghost Hunter: If the original container is now an empty box, hide it!
-if (oldParent && oldParent.id !== 'map' && oldParent.tagName !== 'BODY' && oldParent.children.length === 0) {
-    oldParent.style.display = 'none';
-}
-
-// 6. Inject the Recenter Button inside the wrapper
 const recenterBtn = document.createElement('div');
-recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
+recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
 Object.assign(recenterBtn.style, {
     position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '6px', borderRadius: '6px', backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    transition: '0.2s', border: '1px solid #e2e8f0'
+    padding: '6px', borderRadius: '6px', backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.15)', transition: '0.2s', zIndex: '999'
 });
+recenterBtn.onmouseover = () => recenterBtn.style.backgroundColor = '#f8fafc';
+recenterBtn.onmouseout = () => recenterBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
 recenterBtn.onclick = () => map.flyTo([currentLocation.lat, currentLocation.lng], 16, { animate: true, duration: 1.5 });
-bannerWrapper.appendChild(recenterBtn);
+topBanner.appendChild(recenterBtn);
 
-// 7. Create the Demo vs Live Toggle Switch
+// 2. Create the Demo vs Live Toggle Switch
 const toggleContainer = document.createElement('div');
 Object.assign(toggleContainer.style, {
-    position: 'fixed', // Fixed floats it over everything, ignoring map overflow limits
-    top: '85px', 
+    position: 'fixed', // Floats it over the map natively
+    top: '80px', 
     right: '20px', 
     backgroundColor: 'white', padding: '8px 14px', borderRadius: '30px',
     boxShadow: '0 4px 15px rgba(0,0,0,0.2)', zIndex: '99999',
@@ -601,7 +559,7 @@ toggleContainer.innerHTML = `
 `;
 document.body.appendChild(toggleContainer);
 
-// 8. Toggle Switch Logic
+// 3. Toggle Switch Logic
 document.getElementById('mode-toggle').addEventListener('change', (e) => {
     simActive = e.target.checked; 
     const modeLabel = document.getElementById('mode-label');
@@ -612,23 +570,18 @@ document.getElementById('mode-toggle').addEventListener('change', (e) => {
         // DEMO MODE VISUALS
         modeLabel.innerText = "Demo Mode"; modeLabel.style.color = "#3b82f6";
         toggleSlider.style.backgroundColor = "#3b82f6"; toggleKnob.style.transform = "translateX(0)";
-        
-        // Swap markers
         if (simBusMarker) simBusMarker.addTo(map);
         if (liveBusMarker) liveBusMarker.remove();
     } else {
         // LIVE MODE VISUALS
-        modeLabel.innerText = "Live Mode"; modeLabel.style.color = "#ef4444"; // Red for Live!
+        modeLabel.innerText = "Live Mode"; modeLabel.style.color = "#ef4444"; 
         toggleSlider.style.backgroundColor = "#ef4444"; toggleKnob.style.transform = "translateX(20px)";
-        
-        // Swap markers
         if (simBusMarker) simBusMarker.remove();
         if (liveBusMarker) liveBusMarker.addTo(map);
     }
     
-    // Force immediate UI updates
     refreshNearbyStops();
-    if (sidePanel.classList.contains('open')) updatePanelData();
+    if (sidePanel && sidePanel.classList.contains('open')) updatePanelData();
 });
 
 // --- LIVE ROUTE SIDE PANEL (STATEFUL FOR MULTIPLE BUSES) ---
