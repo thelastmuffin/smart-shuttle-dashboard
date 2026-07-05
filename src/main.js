@@ -103,21 +103,24 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 let simCoordinates = [];
 let simActive = false;
 
-// Build the route waypoints, injecting invisible via-points to fix OSRM shortcuts
+// Safely build the route waypoints, injecting an invisible via-point 
+// on the main ring road to fix the Chancellor Complex underpass issue.
 const routeWaypoints = [];
 
-routeSequence.forEach((stop, index) => {
-    // If the sequence is moving from Block L -> Chancellor Complex...
-    if (stop === "Chancellor Complex" && routeSequence[index - 1] === "Block L") {
-        // Inject an invisible waypoint on the main road to force the U-turn!
-        // This pulls the blue line away from the underpass.
-        routeWaypoints.push(L.latLng(4.381900, 100.971500)); 
+for (let i = 0; i < routeSequence.length; i++) {
+    const stopName = routeSequence[i];
+    
+    // If the bus is leaving Block L and heading to Chancellor Complex...
+    if (stopName === "Chancellor Complex" && i > 0 && routeSequence[i - 1] === "Block L") {
+        // Safe intermediate point: The junction of the Village road and the Main Ring Road
+        routeWaypoints.push(L.latLng(4.384200, 100.972300)); 
     }
     
-    // Add the actual physical bus stop to the route
-    routeWaypoints.push(L.latLng(stopCoords[stop].lat, stopCoords[stop].lng));
-});
+    // Add the actual physical bus stop to the array
+    routeWaypoints.push(L.latLng(stopCoords[stopName].lat, stopCoords[stopName].lng));
+}
 
+// Now feed it into the routing engine
 const routingControl = L.Routing.control({
     waypoints: routeWaypoints,
     routeWhileDragging: false,
@@ -262,7 +265,7 @@ function startSmoothSimulation() {
         }
         currentIndex++;
         updateHighlightedStop();
-    }, 1500); // 1500ms speed for exhibition
+        refreshNearbyStops();    }, 1500); // 1500ms speed for exhibition
 }
 
 // --- 4. THE GEOFENCING LOGIC ---
@@ -347,7 +350,7 @@ onValue(busLocationRef, (snapshot) => {
     
     // --- 5. Calculate ETA & Update UI ---
     updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
-    // refreshNearbyStops();
+    refreshNearbyStops();
 
   } else {
     etaDisplay.innerText = "Bus Offline";
@@ -378,13 +381,23 @@ navItems.forEach((item, index) => {
     });
 });
 
-// --- 5. NEARBY STOPS LOGIC (PEGMAN ONLY) ---
+// --- 5. NEARBY STOPS LOGIC (HYBRID: USER DISTANCE, BUS ETA) ---
 let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; // Main Gate default
 
+// HELPER: Finds the bus's NEXT encounter with a specific stop
+function getNextBusStopIndex(stopName) {
+    for (let i = 0; i < routeSequence.length; i++) {
+        // Start checking from where the bus is currently heading
+        let checkIndex = (currentTargetIndex + i) % routeSequence.length;
+        if (routeSequence[checkIndex] === stopName) {
+            return checkIndex;
+        }
+    }
+    return 0; // Fallback
+}
+
 function refreshNearbyStops() {
-    const walkingSpeedKmH = 5; // Walking speed for the user
     const nearbyList = document.getElementById("nearby-stops-list"); 
-    
     if (!nearbyList) return;
 
     let allStops = [];
@@ -395,21 +408,29 @@ function refreshNearbyStops() {
         allStops.push({ 
             name: name, 
             distanceKm: distKm,
-            distMeters: Math.round(distKm * 1000),
-            timeMinutes: Math.max(1, Math.round((distKm / walkingSpeedKmH) * 60))
+            distMeters: Math.round(distKm * 1000)
         });
     });
 
-    // 2. SORT the array by distance (closest first)
+    // 2. SORT the array by distance to the user (closest first)
     allStops.sort((a, b) => a.distanceKm - b.distanceKm);
 
-    // 3. Slice the top 3 nearest stops to the user
+    // 3. Slice the top 3 nearest physical stops to the user
     const top3Stops = allStops.slice(0, 3);
     const now = new Date();
 
-    // 4. Inject into HTML using your updated UI Card classes
+    // Grab the bus's current location to calculate its driving ETA
+    let currentBusPos = simBusMarker ? simBusMarker.getLatLng() : { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
+    if (liveBusMarker) currentBusPos = liveBusMarker.getLatLng();
+
+    // 4. Inject into HTML with the BUS ETA
     nearbyList.innerHTML = top3Stops.map((stop) => {
-        const etaTime = new Date(now.getTime() + stop.timeMinutes * 60000);
+        
+        // Find this stop in the bus's route and calculate driving/waiting time
+        const targetRouteIndex = getNextBusStopIndex(stop.name);
+        const busEtaMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
+        
+        const etaTime = new Date(now.getTime() + busEtaMins * 60000);
         const etaLabel = etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         return `
@@ -417,11 +438,11 @@ function refreshNearbyStops() {
               <div class="icon-circle">📍</div>
               <div class="nearby-stop-info">
                 <h4>${stop.name}</h4>
-                <p>${stop.distMeters} meters away</p>
+                <p>${stop.distMeters} meters from you</p>
               </div>
               <div class="nearby-stop-time">
-                <div>Walk: ${stop.timeMinutes} min</div>
-                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Arrive ${etaLabel}</div>
+                <div>Bus in: ${busEtaMins} min</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Arrives ${etaLabel}</div>
               </div>
             </div>
         `;
@@ -436,14 +457,12 @@ const userMarker = L.marker([currentLocation.lat, currentLocation.lng], {
 
 userMarker.bindPopup("<b>Exhibition Mode</b><br>Drag me to find the nearest stop!").openPopup();
 
-// When the user drops the Pegman, update the coordinates and refresh the list
 userMarker.on('dragend', function (event) {
     const userPos = event.target.getLatLng();
     currentLocation = { lat: userPos.lat, lng: userPos.lng };
     refreshNearbyStops();
 });
 
-// Run once on load to populate the initial list
 refreshNearbyStops();
 
 // --- LIVE CLOCK ---
