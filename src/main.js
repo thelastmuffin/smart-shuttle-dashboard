@@ -148,8 +148,8 @@ function updateHighlightedStop() {
 
 // --- ACCUMULATED ETA CALCULATOR ---
 function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
-    const campusBusSpeedKmH = 22; // Increased from 10 to 22 km/h for realistic campus driving
-    const boardingDelayMinutes = 0.3; // Lowered from 1 minute to ~18 seconds per stop
+    const campusBusSpeedKmH = 22; 
+    const boardingDelayMinutes = 0.3; 
 
     let totalDistanceKm = 0;
     let intermediateStops = 0;
@@ -167,7 +167,6 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
         let nextLegIndex = (scanIndex + 1) % routeSequence.length;
         let nextLegName = routeSequence[nextLegIndex];
 
-        // Add physical distance between these two intermediate stops
         totalDistanceKm += calculateDistance(
             stopCoords[currentLegName].lat, stopCoords[currentLegName].lng,
             stopCoords[nextLegName].lat, stopCoords[nextLegName].lng
@@ -177,11 +176,9 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
         scanIndex = nextLegIndex;
     }
 
-    // 3. Final Math: (Driving Time) + (Boarding Delays)
+    // 3. Final Math: Return the EXACT decimal so we can calculate live seconds
     const drivingTimeMins = (totalDistanceKm / campusBusSpeedKmH) * 60;
-    const totalEtaMins = Math.max(1, Math.round(drivingTimeMins + (intermediateStops * boardingDelayMinutes)));
-
-    return totalEtaMins;
+    return drivingTimeMins + (intermediateStops * boardingDelayMinutes);
 }
 
 function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
@@ -191,7 +188,7 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
         return;
     }
 
-    const displayName = targetStopName.replace(" 2", ""); // Clean name for UI
+    const displayName = targetStopName.replace(" 2", ""); // Hide ghost stop name
 
     if (isArriving || distanceKm < 0.05) {
         etaDisplay.innerText = `Arriving at ${displayName} Now!`;
@@ -200,13 +197,15 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
         let currentBusPos = simBusMarker ? simBusMarker.getLatLng() : { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
         if (liveBusMarker) currentBusPos = liveBusMarker.getLatLng();
 
-        const timeMinutes = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
+        // Convert the exact decimal into Minutes and Seconds
+        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
+        const m = Math.floor(rawMins);
+        const s = Math.floor((rawMins - m) * 60);
         
-        etaDisplay.innerText = `Next Stop: ${displayName} in ${timeMinutes} min`;
+        etaDisplay.innerText = `Next Stop: ${displayName} in ${m}m ${s}s`;
         etaDisplay.style.color = "#94a3b8";
     }
 }
-
 function startSmoothSimulation() {
     let currentIndex = 0;
     let isPaused = false;
@@ -398,6 +397,9 @@ function refreshNearbyStops() {
 
     // 1. Calculate true geometric distance from PEGMAN to EVERY stop
     Object.entries(stopCoords).forEach(([name, coords]) => {
+        // --- HIDE THE GHOST STOP SO IT DOESN'T SHOW UP TWICE ---
+        if (name === "Chancellor Complex 2") return; 
+
         const distKm = calculateDistance(currentLocation.lat, currentLocation.lng, coords.lat, coords.lng);
         allStops.push({ 
             name: name, 
@@ -413,36 +415,38 @@ function refreshNearbyStops() {
     const top3Stops = allStops.slice(0, 3);
     const now = new Date();
 
-    // Grab the bus's current location to calculate its driving ETA
     let currentBusPos = simBusMarker ? simBusMarker.getLatLng() : { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
     if (liveBusMarker) currentBusPos = liveBusMarker.getLatLng();
 
-    // 4. Inject into HTML with the BUS ETA
+    // 4. Inject into HTML with LIVE SECONDS
     nearbyList.innerHTML = top3Stops.map((stop) => {
         
-        // Find this stop in the bus's route and calculate driving/waiting time
         const targetRouteIndex = getNextBusStopIndex(stop.name);
-        const busEtaMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
+        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
         
-        const etaTime = new Date(now.getTime() + busEtaMins * 60000);
+        // Convert the decimal to Minutes and Seconds!
+        const m = Math.floor(rawMins);
+        const s = Math.floor((rawMins - m) * 60);
+
+        const etaTime = new Date(now.getTime() + rawMins * 60000);
         const etaLabel = etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const displayName = stop.name.replace(" 2", "");
 
         return `
             <div class="ui-card nearby-stop-card">
               <div class="icon-circle">📍</div>
               <div class="nearby-stop-info">
-                <h4>${stop.name.replace(" 2", "")}</h4>
+                <h4>${displayName}</h4>
                 <p>${stop.distMeters} meters from you</p>
               </div>
               <div class="nearby-stop-time">
-                <div>Bus in: ${busEtaMins} min</div>
+                <div style="font-weight: bold;">Bus in: ${m}m ${s}s</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Arrives ${etaLabel}</div>
               </div>
             </div>
         `;
     }).join("");
 }
-
 // --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
 const userMarker = L.marker([currentLocation.lat, currentLocation.lng], { 
     draggable: true, 
