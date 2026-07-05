@@ -127,6 +127,7 @@ routingControl.on('routesfound', function(e) {
     simCoordinates = e.routes[0].coordinates;
     if (!simActive) {
         simActive = true;
+        currentTargetIndex = 1; // <--- ADD THIS LINE: Forces it to target An-Nur Mosque
         startSmoothSimulation();
     }
 });
@@ -328,17 +329,19 @@ onValue(busLocationRef, (snapshot) => {
     
     // --- 3. THE GEOFENCE SNAP (Self-Healing Logic) ---
     // Scan all stops to see if the bus is physically at one right now
-    for (let i = 0; i < routeSequence.length; i++) {
-        const checkCoords = stopCoords[routeSequence[i]];
-        const checkDist = calculateDistance(data.lat, data.lng, checkCoords.lat, checkCoords.lng);
-        
-        // If the bus is within 50 meters of stop 'i', it has arrived. 
-        // Snap the target index to the NEXT stop in the sequence.
-        if (checkDist < 0.05) { 
-            currentTargetIndex = (i + 1) % routeSequence.length; 
-            break; // We found the location, stop looping.
+    if (!simActive) { // <--- ADD THIS IF STATEMENT
+        for (let i = 0; i < routeSequence.length; i++) {
+            const checkCoords = stopCoords[routeSequence[i]];
+            const checkDist = calculateDistance(data.lat, data.lng, checkCoords.lat, checkCoords.lng);
+            
+            // If the bus is within 50 meters of stop 'i', it has arrived. 
+            // Snap the target index to the NEXT stop in the sequence.
+            if (checkDist < 0.05) { 
+                currentTargetIndex = (i + 1) % routeSequence.length; 
+                break; // We found the location, stop looping.
+            }
         }
-    }
+    } // <--- ADD THIS CLOSING BRACKET
 
     // --- 4. Identify Target Coordinates & Distance ---
     const targetStopName = routeSequence[currentTargetIndex];
