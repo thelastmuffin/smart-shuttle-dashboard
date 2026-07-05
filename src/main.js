@@ -53,13 +53,21 @@ const stopCoords = {
   "PMMD": { lat: 4.3883576, lng: 100.9672179 },
   "An-Nur Mosque": { lat: 4.3860407, lng: 100.9738842 },
   "Main Gate": { lat: 4.3856013, lng: 100.9789672 },
-  "V7": { lat: 4.383104, lng: 100.974502 },
+  "V6": { lat: 4.383104, lng: 100.974502 }, // Renamed from V7 based on the Excel schedule
   "Chancellor Complex": { lat: 4.381329, lng: 100.970230 },
+  "Chancellor Complex 2": { lat: 4.3823948, lng: 100.9703333 }, // The NEW second stop
   "R&D": { lat: 4.3792507, lng: 100.9608721 },
   "V4": { lat: 4.3887305, lng: 100.9651686 },
   "V5": { lat: 4.3843636, lng: 100.9626794 },
   "Block L": { lat: 4.3851762, lng: 100.9709521 }
 };
+
+// The exact sequence from your Excel CSV
+const routeSequence = [
+  "PMMD", "An-Nur Mosque", "Main Gate", "V6", "Chancellor Complex",
+  "R&D", "V5", "V4", "PMMD", "Block L", "Chancellor Complex 2", "V6",
+  "An-Nur Mosque", "PMMD"
+];
 
 const utpBounds = L.latLngBounds(
   Object.values(stopCoords).map(({ lat, lng }) => [lat, lng])
@@ -76,17 +84,12 @@ focusUtpMap();
 window.addEventListener('load', focusUtpMap);
 window.addEventListener('resize', focusUtpMap);
 
-// The exact sequence the bus travels
-const routeSequence = [
-  "PMMD", "An-Nur Mosque", "Main Gate", "V7", "Chancellor Complex",
-  "R&D", "V5", "V4", "PMMD", "Block L", "Chancellor Complex", "V7",
-  "An-Nur Mosque", "PMMD"
-];
-
 const stopMarkers = {};
 
 // Draw markers for all physical stops
 Object.entries(stopCoords).forEach(([name, coords]) => {
+  const displayName = name.replace(" 2", ""); // Hides the '2' from the judges
+
   const marker = L.marker([coords.lat, coords.lng], {
     icon: L.divIcon({
       html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
@@ -94,7 +97,7 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
       iconSize: [16, 16],
       iconAnchor: [8, 8]
     })
-  }).addTo(map).bindPopup(`<b>${name}</b>`);
+  }).addTo(map).bindPopup(`<b>${displayName}</b>`);
 
   stopMarkers[name] = marker;
 });
@@ -103,24 +106,16 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 let simCoordinates = [];
 let simActive = false;
 
-// Build the route waypoints cleanly
+// Build the route waypoints cleanly (No alternative coordinates)
 const routeWaypoints = [];
 for (let i = 0; i < routeSequence.length; i++) {
     const stopName = routeSequence[i];
     routeWaypoints.push(L.latLng(stopCoords[stopName].lat, stopCoords[stopName].lng));
 }
 
-// Now feed it into the routing engine using the "FOOT" profile!
+// Default standard routing engine
 const routingControl = L.Routing.control({
     waypoints: routeWaypoints,
-    
-    // --- THE MAGIC FIX ---
-    // This forces the engine to ignore car traffic rules and medians
-    router: L.Routing.osrmv1({
-        serviceUrl: 'https://router.project-osrm.org/route/v1/foot'
-    }),
-    // ---------------------
-
     routeWhileDragging: false,
     addWaypoints: false,
     show: false,
@@ -196,17 +191,18 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
         return;
     }
 
+    const displayName = targetStopName.replace(" 2", ""); // Clean name for UI
+
     if (isArriving || distanceKm < 0.05) {
-        etaDisplay.innerText = `Arriving at ${targetStopName} Now!`;
+        etaDisplay.innerText = `Arriving at ${displayName} Now!`;
         etaDisplay.style.color = "#10b981";
     } else {
-        // We use our new master ETA function to get the realistic time to the immediate next stop
         let currentBusPos = simBusMarker ? simBusMarker.getLatLng() : { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
         if (liveBusMarker) currentBusPos = liveBusMarker.getLatLng();
 
         const timeMinutes = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
         
-        etaDisplay.innerText = `Next Stop: ${targetStopName} in ${timeMinutes} min`;
+        etaDisplay.innerText = `Next Stop: ${displayName} in ${timeMinutes} min`;
         etaDisplay.style.color = "#94a3b8";
     }
 }
@@ -435,7 +431,7 @@ function refreshNearbyStops() {
             <div class="ui-card nearby-stop-card">
               <div class="icon-circle">📍</div>
               <div class="nearby-stop-info">
-                <h4>${stop.name}</h4>
+                <h4>${stop.name.replace(" 2", "")}</h4>
                 <p>${stop.distMeters} meters from you</p>
               </div>
               <div class="nearby-stop-time">
