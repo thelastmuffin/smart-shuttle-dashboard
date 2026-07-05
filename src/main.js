@@ -29,20 +29,22 @@ const pegmanIcon = L.divIcon({
     popupAnchor: [0, -40]
 });
 
-// 2. Top-Down GPS Navigation Arrow
-const gpsArrowIcon = L.divIcon({
-    html: `<div id="bus-arrow" style="
-        width: 0; height: 0; 
-        border-left: 12px solid transparent;
-        border-right: 12px solid transparent;
-        border-bottom: 30px solid #3b82f6; /* Blue Accent */
-        filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.5));
-        transition: transform 0.1s linear; /* Smooth rotation */
-    "></div>`,
-    className: 'clear-icon',
-    iconSize: [24, 30],
-    iconAnchor: [12, 15]
-});
+// 2. Top-Down GPS Navigation Arrow (Dynamic Generator)
+function getGpsArrowIcon(idName, hexColor) {
+    return L.divIcon({
+        html: `<div id="${idName}" style="
+            width: 0; height: 0; 
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-bottom: 30px solid ${hexColor}; 
+            filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.5));
+            transition: transform 0.1s linear;
+        "></div>`,
+        className: 'clear-icon',
+        iconSize: [24, 30],
+        iconAnchor: [12, 15]
+    });
+}
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
@@ -506,29 +508,40 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime(); // Run immediately on load
 
-// --- MAP RECENTER BUTTON (GUARANTEED VISIBLE OVERLAY) ---
+// --- MAP RECENTER BUTTON (INSIDE TOP BANNER) ---
+const topBanner = document.getElementById('eta-display').parentElement;
+topBanner.style.position = 'relative'; // Allows us to float the button inside it
+
 const recenterBtn = document.createElement('div');
-recenterBtn.innerHTML = '🎯';
+// Google Maps style crosshair SVG
+recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
+
 Object.assign(recenterBtn.style, {
     position: 'absolute',
-    bottom: '90px', // High enough to clear any bottom navigation bars
-    right: '20px',
-    width: '45px',
-    height: '45px',
-    backgroundColor: 'white',
-    borderRadius: '50%',
+    right: '15px',
+    top: '50%',
+    transform: 'translateY(-50%)', // Perfectly centers it vertically in the rectangle
+    cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '24px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-    cursor: 'pointer',
-    zIndex: '9999' // Forces it to the very top layer!
+    padding: '6px',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+    transition: '0.2s'
 });
+
+// Add a hover effect
+recenterBtn.onmouseover = () => recenterBtn.style.backgroundColor = '#f1f5f9';
+recenterBtn.onmouseout = () => recenterBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+
 recenterBtn.onclick = () => {
     map.flyTo([currentLocation.lat, currentLocation.lng], 16, { animate: true, duration: 1.5 });
 };
-document.getElementById('map').appendChild(recenterBtn);
+
+// Inject it into the live status banner!
+topBanner.appendChild(recenterBtn);
 
 // --- LIVE ROUTE SIDE PANEL (STATEFUL FOR MULTIPLE BUSES) ---
 const panelStyle = document.createElement('style');
@@ -570,7 +583,9 @@ const panelHtml = `
                 <span>⭐ <strong style="color:white;">4.9</strong></span>
             </div>
             <div class="detail-row" style="margin-top: 2px;">
-                <span>Route: <span id="panel-route-badge" class="route-badge">WITHIN UTP CAMPUS</span></span>
+                <span style="display:flex; align-items:center; gap:6px;">
+                    Route: <strong id="panel-route-badge" style="font-size:13px; letter-spacing:0.5px;">WITHIN UTP CAMPUS</strong>
+                </span>
             </div>
         </div>
         <div class="panel-content" id="panel-stop-list"></div>
@@ -601,8 +616,11 @@ function updatePanelData() {
     const badge = document.getElementById('panel-route-badge');
     badge.innerText = isCampus ? 'WITHIN UTP CAMPUS' : 'SERI ISKANDAR';
     badge.style.color = isCampus ? '#60a5fa' : '#f59e0b';
-    badge.style.backgroundColor = isCampus ? 'rgba(59, 130, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)';
-    badge.style.borderColor = isCampus ? 'rgba(59,130,246,0.3)' : 'rgba(245,158,11,0.3)';
+    
+    // Clear the old box styling out
+    badge.style.backgroundColor = 'transparent';
+    badge.style.border = 'none';
+    badge.style.padding = '0';
 
     // 2. LIST GENERATOR
     let listHTML = "";
