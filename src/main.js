@@ -386,6 +386,7 @@ onValue(busLocationRef, (snapshot) => {
     if (!simActive) { // <--- Wrap these updates inside this IF statement!
         updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
         refreshNearbyStops();
+    }
 
   } else {
     etaDisplay.innerText = "Bus Offline";
