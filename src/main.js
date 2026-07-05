@@ -238,8 +238,10 @@ function startSmoothSimulation() {
     let isPaused = false;
     
     if (!simBusMarker) {
-        simBusMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {icon: gpsArrowIcon}).addTo(map)
-            .on('click', () => openLiveSchedulePanel('campus')); // <-- UPDATED
+        simBusMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {
+            icon: getGpsArrowIcon('sim-bus-arrow', '#3b82f6') // <--- FIXED THIS
+        }).addTo(map)
+            .on('click', () => openLiveSchedulePanel('campus'));
     }
 
     setInterval(() => {
@@ -257,7 +259,7 @@ function startSmoothSimulation() {
             const dy = nextCoord.lat - currentCoord.lat;
             const dx = nextCoord.lng - currentCoord.lng;
             const angle = Math.atan2(dx, dy) * (180 / Math.PI); 
-            const arrowEl = document.getElementById('bus-arrow');
+            const arrowEl = document.getElementById('sim-bus-arrow');
             if (arrowEl) arrowEl.style.transform = `rotate(${angle}deg)`;
         }
 
@@ -347,8 +349,10 @@ onValue(busLocationRef, (snapshot) => {
 
     // --- 2. Move the Live Bus Marker ---
     if (liveBusMarker === null) {
-        liveBusMarker = L.marker([data.lat, data.lng]).addTo(map)
-            .on('click', () => openLiveSchedulePanel('campus')); // <-- UPDATED
+        liveBusMarker = L.marker([data.lat, data.lng], {
+            icon: getGpsArrowIcon('live-bus-arrow', '#3b82f6') // <--- FIXED THIS
+        }).addTo(map)
+            .on('click', () => openLiveSchedulePanel('campus')); 
     } else {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
@@ -510,7 +514,8 @@ updateTime(); // Run immediately on load
 
 // --- MAP RECENTER BUTTON (INSIDE TOP BANNER) ---
 const topBanner = document.getElementById('eta-display').parentElement;
-topBanner.style.position = 'relative'; // Allows us to float the button inside it
+topBanner.style.position = 'relative'; 
+topBanner.style.paddingRight = '50px'; // <--- ADD THIS: Pushes text safely away from the button
 
 const recenterBtn = document.createElement('div');
 // Google Maps style crosshair SVG
@@ -700,6 +705,8 @@ const stationaryBusIcon = L.divIcon({
 });
 
 // 2. Place the marker and bind a styled popup
-const seriIskandarBus = L.marker([4.365577, 100.9803029], { icon: gpsArrowIcon })
+const seriIskandarBus = L.marker([4.365577, 100.9803029], { 
+    icon: getGpsArrowIcon('seri-bus-arrow', '#f59e0b') // <--- FIXED THIS (Now Amber!)
+})
     .addTo(map)
     .on('click', () => openLiveSchedulePanel('seri'));
