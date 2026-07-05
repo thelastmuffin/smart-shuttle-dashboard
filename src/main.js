@@ -519,7 +519,7 @@ setInterval(updateTime, 1000);
 updateTime(); // Run immediately on load
 
 // --- EMERGENCY UI FIX & MODE TOGGLE OVERLAYS ---
-// 1. Create a brand new wrapper so we don't accidentally shrink the map!
+// 1. Create a brand new wrapper
 const bannerWrapper = document.createElement('div');
 Object.assign(bannerWrapper.style, {
     position: 'fixed', // Fixed keeps it glued to the screen viewport
@@ -530,7 +530,7 @@ Object.assign(bannerWrapper.style, {
     padding: '12px 60px 12px 20px', // Extra right padding for the button
     borderRadius: '12px',
     boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-    zIndex: '99999', // Super high z-index to float above Leaflet
+    zIndex: '99999', 
     width: '90%',
     maxWidth: '400px',
     display: 'flex',
@@ -539,12 +539,35 @@ Object.assign(bannerWrapper.style, {
     fontFamily: 'system-ui, sans-serif'
 });
 
-// Move the ETA text safely INSIDE our new wrapper
-etaDisplay.parentNode.insertBefore(bannerWrapper, etaDisplay);
-bannerWrapper.appendChild(etaDisplay);
-etaDisplay.style.margin = '0'; // Clear any default margins
+// 2. Identify the original parent before we move the text
+const oldParent = etaDisplay.parentElement;
 
-// 2. Inject the Recenter Button inside the wrapper
+// 3. STRIP ALL ORIGINAL CSS FROM THE ETA DISPLAY!
+// This stops it from drawing its own "second bar" and forces it to just be purely text.
+etaDisplay.style.cssText = `
+    position: static !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    transform: none !important;
+    left: auto !important;
+    top: auto !important;
+`;
+
+// 4. Move the wrapper directly to the body, and put the text inside it
+document.body.appendChild(bannerWrapper);
+bannerWrapper.appendChild(etaDisplay);
+
+// 5. The Ghost Hunter: If the original container is now an empty box, hide it!
+if (oldParent && oldParent.id !== 'map' && oldParent.tagName !== 'BODY' && oldParent.children.length === 0) {
+    oldParent.style.display = 'none';
+}
+
+// 6. Inject the Recenter Button inside the wrapper
 const recenterBtn = document.createElement('div');
 recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
 Object.assign(recenterBtn.style, {
@@ -556,7 +579,7 @@ Object.assign(recenterBtn.style, {
 recenterBtn.onclick = () => map.flyTo([currentLocation.lat, currentLocation.lng], 16, { animate: true, duration: 1.5 });
 bannerWrapper.appendChild(recenterBtn);
 
-// 3. Create the Demo vs Live Toggle Switch
+// 7. Create the Demo vs Live Toggle Switch
 const toggleContainer = document.createElement('div');
 Object.assign(toggleContainer.style, {
     position: 'fixed', // Fixed floats it over everything, ignoring map overflow limits
@@ -576,10 +599,9 @@ toggleContainer.innerHTML = `
         <span id="toggle-knob" style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
     </label>
 `;
-// Append to BODY so Leaflet doesn't hide it
 document.body.appendChild(toggleContainer);
 
-// 4. Toggle Switch Logic
+// 8. Toggle Switch Logic
 document.getElementById('mode-toggle').addEventListener('change', (e) => {
     simActive = e.target.checked; 
     const modeLabel = document.getElementById('mode-label');
