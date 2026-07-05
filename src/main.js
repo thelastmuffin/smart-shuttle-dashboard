@@ -216,7 +216,7 @@ function startSmoothSimulation() {
     
     if (!simBusMarker) {
         simBusMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {icon: gpsArrowIcon}).addTo(map)
-            .bindPopup(`<div style="text-align:center;"><b>🚌 Shuttle Bus 1</b><br><span style="font-size:12px; color:gray;">Route: PMMD ➔ Chancellor ➔ PMMD</span></div>`);
+            .on('click', openLiveSchedulePanel); // <-- UPDATED THIS LINE
     }
 
     setInterval(() => {
@@ -325,7 +325,7 @@ onValue(busLocationRef, (snapshot) => {
     // --- 2. Move the Live Bus Marker ---
     if (liveBusMarker === null) {
         liveBusMarker = L.marker([data.lat, data.lng]).addTo(map)
-            .bindPopup(`<div style="text-align:center;"><b>🚌 Shuttle Bus 1 (Live)</b><br><span style="font-size:12px; color:gray;">Route: PMMD ➔ Chancellor ➔ PMMD</span></div>`);
+            .on('click', openLiveSchedulePanel); // <-- UPDATED THIS LINE
     } else {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
@@ -520,3 +520,147 @@ const RecenterControl = L.Control.extend({
 
 // Add the button to the map
 map.addControl(new RecenterControl());
+
+// --- LIVE ROUTE SIDE PANEL (SLIDE-OUT DRAWER) ---
+// 1. Inject the CSS styling
+const panelStyle = document.createElement('style');
+panelStyle.innerHTML = `
+    #bus-side-panel {
+        position: fixed;
+        top: 0;
+        right: -380px; /* Hidden offscreen by default */
+        width: 340px;
+        height: 100vh;
+        background: #ffffff;
+        box-shadow: -4px 0 25px rgba(0,0,0,0.25);
+        z-index: 99999;
+        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        font-family: system-ui, -apple-system, sans-serif;
+    }
+    #bus-side-panel.open { right: 0; }
+    .panel-header {
+        background: #3b82f6;
+        color: white;
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .panel-header h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;}
+    .close-btn { 
+        background: rgba(255,255,255,0.2); border: none; color: white; 
+        width: 32px; height: 32px; border-radius: 50%; 
+        cursor: pointer; font-weight: bold; transition: 0.2s;
+    }
+    .close-btn:hover { background: rgba(255,255,255,0.4); }
+    .panel-content { flex: 1; overflow-y: auto; padding: 15px; }
+    .route-stop-item {
+        display: flex; align-items: center; padding: 12px 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .route-stop-item:last-child { border-bottom: none; }
+    .stop-dot {
+        width: 14px; height: 14px; border-radius: 50%;
+        background: #cbd5e1; margin-right: 15px;
+        border: 3px solid white; box-shadow: 0 0 0 2px #cbd5e1;
+    }
+    .stop-dot.next-stop { background: #ef4444; box-shadow: 0 0 0 2px #ef4444; }
+    .stop-info { flex: 1; }
+    .stop-name { font-weight: 600; font-size: 14.5px; color: #1e293b; }
+    .stop-eta { font-size: 13px; color: #64748b; margin-top: 3px; }
+    .stop-time-badge {
+        background: #f8fafc; border: 1px solid #e2e8f0;
+        padding: 4px 8px; border-radius: 6px;
+        font-size: 12px; font-weight: 600; color: #3b82f6;
+    }
+`;
+document.head.appendChild(panelStyle);
+
+// 2. Inject the HTML Structure
+const panelHtml = `
+    <div id="bus-side-panel">
+        <div class="panel-header">
+            <h2>🚌 Live Schedule</h2>
+            <button class="close-btn" id="close-panel-btn">✕</button>
+        </div>
+        <div class="panel-content" id="panel-stop-list"></div>
+    </div>
+`;
+document.body.insertAdjacentHTML('beforeend', panelHtml);
+
+// 3. The Logic
+const sidePanel = document.getElementById('bus-side-panel');
+const panelStopList = document.getElementById('panel-stop-list');
+let panelUpdateInterval = null;
+
+// Close the panel when 'X' is clicked, or when the map is clicked
+document.getElementById('close-panel-btn').addEventListener('click', () => sidePanel.classList.remove('open'));
+map.on('click', () => sidePanel.classList.remove('open'));
+
+function updatePanelData() {
+    let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
+    if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
+    if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
+
+    const now = new Date();
+    let listHTML = "";
+
+    // Loop through the sequence starting from the upcoming stop
+    for (let i = 0; i < routeSequence.length; i++) {
+        const checkIndex = (currentTargetIndex + i) % routeSequence.length;
+        const stopName = routeSequence[checkIndex];
+        
+        if (stopName === "Chancellor Complex 2") continue; // Hide the ghost stop
+
+        // Calculate ETA
+        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, checkIndex);
+        const m = Math.floor(rawMins);
+        const s = Math.floor((rawMins - m) * 60);
+        
+        const etaTime = new Date(now.getTime() + rawMins * 60000);
+        const etaLabel = etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const displayName = stopName.replace(" 2", "");
+        const isNextStop = (i === 0);
+        const dotClass = isNextStop ? "stop-dot next-stop" : "stop-dot";
+
+        // --- THE FIX: Highlight the current destination and keep the countdown! ---
+        const nameDisplay = isNextStop 
+            ? `${displayName} <span style="background:#fee2e2; color:#ef4444; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold; letter-spacing:0.5px;">HEADING HERE</span>` 
+            : displayName;
+            
+        const etaText = isNextStop 
+            ? `<span style="color:#ef4444; font-weight:600;">Arriving in: ${m}m ${s}s</span>` 
+            : `ETA: ${m}m ${s}s`;
+
+        listHTML += `
+            <div class="route-stop-item">
+                <div class="${dotClass}"></div>
+                <div class="stop-info">
+                    <div class="stop-name">${nameDisplay}</div>
+                    <div class="stop-eta">${etaText}</div>
+                </div>
+                <div class="stop-time-badge">${etaLabel}</div>
+            </div>
+        `;
+    }
+    panelStopList.innerHTML = listHTML;
+}
+
+function openLiveSchedulePanel() {
+    sidePanel.classList.add('open');
+    updatePanelData(); // Populate immediately
+    
+    // Start a timer to live-update the seconds while the panel is open!
+    if (panelUpdateInterval) clearInterval(panelUpdateInterval);
+    panelUpdateInterval = setInterval(() => {
+        if (sidePanel.classList.contains('open')) {
+            updatePanelData();
+        } else {
+            clearInterval(panelUpdateInterval); // Stop calculating if closed
+        }
+    }, 1000);
+}
