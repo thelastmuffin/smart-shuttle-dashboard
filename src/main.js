@@ -10,6 +10,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const etaDisplay = document.getElementById("eta-display");
+if (!etaDisplay) {
+    console.error("eta-display element not found in DOM — check your HTML structure/script load order");
+}
 
 // --- 2. MAP INITIALIZATION ---
 const map = L.map('map', { zoomControl: false });
@@ -208,18 +211,16 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
 function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
     if (!targetStopName || !Number.isFinite(distanceKm)) {
         etaDisplay.innerText = "Waiting for GPS signal...";
-        etaDisplay.style.color = "#94a3b8";
+        etaDisplay.style.color = "#64748b"; // was #94a3b8 — darken slightly for contrast
         return;
     }
 
-    const displayName = targetStopName.replace(" 2", ""); // Hide ghost stop name
+    const displayName = targetStopName.replace(" 2", "");
 
-    // INCREASED to 0.08 (80 meters) so it doesn't accidentally skip stops!
-    if (isArriving || distanceKm < 0.08) { 
+    if (isArriving || distanceKm < 0.08) {
         etaDisplay.innerText = `Arriving at ${displayName} Now!`;
         etaDisplay.style.color = "#10b981";
     } else {
-        // THE FIX: Strictly prioritize the moving simulation over stale Firebase data
         let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
         if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
         if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
@@ -227,9 +228,9 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
         const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
-        
+
         etaDisplay.innerText = `Next Stop: ${displayName} in ${m}m ${s}s`;
-        etaDisplay.style.color = "#94a3b8";
+        etaDisplay.style.color = "#1e293b"; // CHANGED — dark navy, readable on light banner
     }
 }
 
@@ -522,6 +523,8 @@ updateTime(); // Run immediately on load
 // 1. Gently inject the Recenter Button inside your ORIGINAL banner
 const topBanner = document.getElementById('eta-display').parentElement;
 topBanner.style.position = 'relative'; // Ensure the button stays inside the banner bounds
+topBanner.style.zIndex = '1000';      // ADD THIS LINE
+topBanner.style.overflow = 'visible'; // ADD THIS LINE
 topBanner.style.paddingRight = '50px'; // Add a little padding so text doesn't hit the button
 
 const recenterBtn = document.createElement('div');
