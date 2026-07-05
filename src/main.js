@@ -103,7 +103,20 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 let simCoordinates = [];
 let simActive = false;
 
-const routeWaypoints = routeSequence.map(stop => L.latLng(stopCoords[stop].lat, stopCoords[stop].lng));
+// Build the route waypoints, injecting invisible via-points to fix OSRM shortcuts
+const routeWaypoints = [];
+
+routeSequence.forEach((stop, index) => {
+    // If the sequence is moving from Block L -> Chancellor Complex...
+    if (stop === "Chancellor Complex" && routeSequence[index - 1] === "Block L") {
+        // Inject an invisible waypoint on the main road to force the U-turn!
+        // This pulls the blue line away from the underpass.
+        routeWaypoints.push(L.latLng(4.381900, 100.971500)); 
+    }
+    
+    // Add the actual physical bus stop to the route
+    routeWaypoints.push(L.latLng(stopCoords[stop].lat, stopCoords[stop].lng));
+});
 
 const routingControl = L.Routing.control({
     waypoints: routeWaypoints,
