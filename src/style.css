@@ -255,25 +255,14 @@ html, body {
   z-index: 1 !important;
 }
 
-/* --- OVERRIDE JS: Force the Next Stop bar to stretch across the bottom --- */
-.status-overlay div,
-#eta-display {
-  position: relative !important; 
-  top: auto !important;
-  right: auto !important; /* Stops JS from pushing it to the right edge */
-  left: auto !important;
-  transform: none !important;
-  width: 100% !important; /* Forces it to stretch to the edges of the card */
-  margin: 0 !important;
-}
-
-/* Keep the wrapper locked perfectly centered at the bottom */
+/* --- OVERRIDE JS: Force the Next Stop bar to be a compact, styled card --- */
 .status-overlay { 
   position: absolute !important;
   bottom: 40px !important;
-  left: 15px !important; /* Locks left side */
-  right: 15px !important; /* Locks right side */
-  width: auto !important;
+  left: 15px !important; 
+  right: 15px !important; 
+  top: auto !important;
+  height: auto !important; /* CRITICAL: Stops it from growing vertically */
   z-index: 9999 !important; 
   background: transparent !important;
   border: none !important;
@@ -285,8 +274,32 @@ html, body {
   align-items: center !important;
 }
 
-.status-overlay > * {
-  pointer-events: auto !important;
+#eta-display {
+  position: relative !important; 
+  top: auto !important;
+  right: auto !important; 
+  left: auto !important;
+  transform: none !important;
+  width: 100% !important; 
+  height: auto !important;
+  min-height: 20px !important;
+  max-height: 60px !important; /* CRITICAL: Forces it to stay a thin bar */
+  margin: 0 !important;
+  
+  /* Restores the beautiful dark glass card look natively in CSS */
+  background: rgba(30, 41, 59, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+  padding: 14px 20px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+  
+  /* Centers the text */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  pointer-events: auto !important; 
 }
 
 /* --- Move Leaflet Controls to Bottom-Right --- */
