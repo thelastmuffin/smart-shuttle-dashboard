@@ -289,15 +289,38 @@ html, body {
   pointer-events: auto !important;
 }
 
-/* --- Keep Leaflet controls above the card --- */
-.leaflet-bottom {
-  bottom: 100px !important;
-  left: 0 !important; /* Ensures the leaflet controls don't get dragged right */
-  width: 100% !important; /* Gives Leaflet space to position its own buttons naturally */
+/* --- Move Leaflet Controls to Bottom-Right --- */
+.leaflet-bottom.leaflet-right,
+.leaflet-bottom.leaflet-left {
+  left: auto !important;
+  right: 15px !important; /* Pins it to the far right */
+  bottom: 100px !important; /* Keeps it safely above your Next Stop card */
+  width: auto !important;
 }
 
-/* Force Leaflet Recenter button to behave */
-.leaflet-bottom.leaflet-right {
-  right: 15px !important;
-  left: auto !important; /* Forces it to the bottom-left corner above your Next Stop card */
+/* --- Turn the Recenter Button into a Small UI Square --- */
+.leaflet-bottom .leaflet-control:not(.leaflet-control-attribution) {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 10px !important; /* Nice square edges */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  
+  /* Matches your dark app theme */
+  background-color: var(--bg-card) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5) !important;
+  
+  padding: 0 !important;
+  margin: 0 !important;
+  cursor: pointer;
+}
+
+/* Ensures the icon inside the square fits perfectly */
+.leaflet-bottom .leaflet-control svg,
+.leaflet-bottom .leaflet-control img {
+  width: 20px !important;
+  height: 20px !important;
+  fill: var(--text-main) !important;
 }

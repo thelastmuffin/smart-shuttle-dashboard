@@ -556,29 +556,6 @@ Object.assign(recenterBtn.style, {
 recenterBtn.onclick = () => map.flyTo([currentLocation.lat, currentLocation.lng], 16, { animate: true, duration: 1.5 });
 bannerWrapper.appendChild(recenterBtn);
 
-// 3. Create the Demo vs Live Toggle Switch
-const toggleContainer = document.createElement('div');
-Object.assign(toggleContainer.style, {
-    position: 'fixed', // Fixed floats it over everything, ignoring map overflow limits
-    top: '85px', 
-    right: '20px', 
-    backgroundColor: 'white', padding: '8px 14px', borderRadius: '30px',
-    boxShadow: '0 4px 15px rgba(0,0,0,0.2)', zIndex: '99999',
-    display: 'flex', alignItems: 'center', gap: '10px',
-    fontFamily: 'system-ui, sans-serif', fontSize: '13px', fontWeight: '600'
-});
-
-toggleContainer.innerHTML = `
-    <span id="mode-label" style="color: #3b82f6;">Demo Mode</span>
-    <label style="position: relative; display: inline-block; width: 44px; height: 24px; margin: 0;">
-        <input type="checkbox" id="mode-toggle" checked style="opacity: 0; width: 0; height: 0; margin: 0;">
-        <span id="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #3b82f6; transition: .3s; border-radius: 34px;"></span>
-        <span id="toggle-knob" style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
-    </label>
-`;
-// Append to BODY so Leaflet doesn't hide it
-document.body.appendChild(toggleContainer);
-
 // 4. Toggle Switch Logic (Linked to your Settings Page)
 const settingsToggle = document.getElementById('toggle-slider');
 
