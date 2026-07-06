@@ -518,8 +518,6 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime(); // Run immediately on load
 
-// --- EMERGENCY UI FIX & MODE TOGGLE OVERLAYS ---
-
 // --- CUSTOM RECENTER BUTTON ---
 const recenterBtn = document.createElement('div');
 recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
