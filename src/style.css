@@ -75,11 +75,13 @@ body {
 
 /* Invisible wrapper to keep the ETA display floating at the bottom */
 .status-overlay {
-  position: absolute;
-  bottom: 15px;
-  left: 15px;
-  right: 15px;
-  z-index: 1000;
+  position: absolute !important;
+  bottom: 15px !important;
+  left: 15px !important;
+  right: 15px !important;
+  top: auto !important;       /* Forces JS to stop pushing it to the top */
+  transform: none !important; /* Clears any centering transforms from JS */
+  z-index: 1000 !important;
 }
 
 /* Hide default Leaflet zoom controls for a cleaner UI */
