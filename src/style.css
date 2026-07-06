@@ -228,29 +228,44 @@ html, body {
   transition: 0.3s ease;
 }
 
-/* --- 2. Make the wrapper an INVISIBLE container --- */
+/* --- OVERRIDE JS: Lock Demo Switch into the Settings Card --- */
+#toggle-slider {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  margin-left: auto !important; /* Pushes it neatly to the right edge of the card */
+  z-index: 1 !important;
+}
+
+/* --- OVERRIDE JS: Force the Next Stop bar to stay at the bottom --- */
+/* This stops JS from making the inner elements fly to the top of the screen */
+.status-overlay div,
+#eta-display {
+  position: relative !important; 
+  top: auto !important;
+  transform: none !important;
+}
+
+/* Keep the wrapper locked to the bottom */
 .status-overlay { 
   position: absolute !important;
   bottom: 40px !important;
   left: 15px !important;
   right: 15px !important;
-  top: auto !important; 
-  transform: none !important;
   z-index: 9999 !important; 
-  
-  /* REMOVED: Backgrounds, borders, and shadows! */
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  pointer-events: none !important; /* Lets you click the map through the empty space */
+  pointer-events: none !important; 
   
-  /* Centers the JS card inside perfectly */
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
 }
 
-/* Ensure the actual Next Stop card remains clickable */
+/* Ensure you can still click the UI card itself */
 .status-overlay > * {
   pointer-events: auto !important;
 }
