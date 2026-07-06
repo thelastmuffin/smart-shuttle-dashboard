@@ -524,11 +524,10 @@ updateTime(); // Run immediately on load
 const recenterBtn = document.createElement('div');
 recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
 
-// Perfect Square Styling floating on the right
 Object.assign(recenterBtn.style, {
     position: 'absolute',
     right: '15px',
-    bottom: '100px', // Sits perfectly right above your Next Stop card
+    bottom: '15px', // CHANGED FROM 100px: Drops it perfectly into the corner!
     width: '42px',
     height: '42px',
     cursor: 'pointer',
@@ -536,8 +535,8 @@ Object.assign(recenterBtn.style, {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: '12px',
-    backgroundColor: '#1e293b', // Matches your dark theme UI cards
-    color: '#3b82f6',           // Your accent blue!
+    backgroundColor: '#1e293b', 
+    color: '#3b82f6',          
     boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
     border: '1px solid rgba(255,255,255,0.1)',
     zIndex: '9999'

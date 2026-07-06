@@ -62,14 +62,22 @@ html, body {
   color: var(--text-muted);
 }
 
-/* Map Area */
+/* Makes the map a large square and stops it from squishing */
 .map-wrapper {
-  flex-grow: 1;
-  position: relative; /* This keeps the overlay locked to the map */
+  flex: none !important; 
+  width: calc(100% - 30px);
+  height: calc(100vw - 30px); /* Creates a perfect square based on screen width */
+  max-height: 450px; /* Puts a safe cap on it for desktop/tablet screens */
+  position: relative; 
   margin: 0 15px;
   border-radius: 24px;
   overflow: hidden; 
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Hides the annoying floating Leaflet watermark */
+.leaflet-control-attribution {
+  display: none !important;
 }
 
 #map {
@@ -255,53 +263,32 @@ html, body {
   z-index: 1 !important;
 }
 
-/* --- OVERRIDE JS: Force the Next Stop bar to be a compact, styled card --- */
-.status-overlay { 
-  position: absolute !important;
-  bottom: 40px !important;
-  left: 15px !important; 
-  right: 15px !important; 
-  top: auto !important;
-  height: auto !important; /* CRITICAL: Stops it from growing vertically */
-  z-index: 9999 !important; 
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  pointer-events: none !important; 
-  
-  display: flex !important;
-  justify-content: center !important;
-  align-items: center !important;
+/* --- External Next Stop Bar --- */
+.status-container {
+  margin: 15px 15px 0 15px; /* Adds perfect spacing below the map */
 }
 
 #eta-display {
   position: relative !important; 
-  top: auto !important;
-  right: auto !important; 
-  left: auto !important;
+  top: auto !important; right: auto !important; left: auto !important; bottom: auto !important;
   transform: none !important;
   width: 100% !important; 
   height: auto !important;
-  min-height: 20px !important;
-  max-height: 60px !important; /* CRITICAL: Forces it to stay a thin bar */
   margin: 0 !important;
   
-  /* Restores the beautiful dark glass card look natively in CSS */
-  background: rgba(30, 41, 59, 0.95) !important;
-  backdrop-filter: blur(10px) !important;
+  /* UI Card Look */
+  background: var(--bg-card) !important;
   padding: 14px 20px !important;
   border-radius: 16px !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
   
-  /* Centers the text */
+  /* Center the text perfectly */
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   text-align: center !important;
-  pointer-events: auto !important; 
+  box-sizing: border-box !important;
 }
-
 /* --- Move Leaflet Controls to Bottom-Right --- */
 .leaflet-bottom.leaflet-right,
 .leaflet-bottom.leaflet-left {
