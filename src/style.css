@@ -299,5 +299,5 @@ html, body {
 /* Force Leaflet Recenter button to behave */
 .leaflet-bottom.leaflet-right {
   right: 15px !important;
-  left: auto!important; /* Forces it to the bottom-left corner above your Next Stop card */
+  left: auto !important; /* Forces it to the bottom-left corner above your Next Stop card */
 }
