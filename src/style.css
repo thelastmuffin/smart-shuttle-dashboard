@@ -112,12 +112,6 @@ body {
   box-shadow: 0 10px 25px rgba(0,0,0,0.5);
 }
 
-.floating-card h3 {
-  margin: 0 0 5px 0;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
 #eta-display {
   margin: 0;
   font-size: 16px;
