@@ -10,6 +10,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const etaDisplay = document.getElementById("eta-display");
+if (!etaDisplay) {
+    console.error("eta-display element not found in DOM — check your HTML structure/script load order");
+}
 
 // --- 2. MAP INITIALIZATION ---
 const map = L.map('map', { zoomControl: false });
@@ -208,18 +211,16 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
 function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
     if (!targetStopName || !Number.isFinite(distanceKm)) {
         etaDisplay.innerText = "Waiting for GPS signal...";
-        etaDisplay.style.color = "#94a3b8";
+        etaDisplay.style.color = "#64748b"; // was #94a3b8 — darken slightly for contrast
         return;
     }
 
-    const displayName = targetStopName.replace(" 2", ""); // Hide ghost stop name
+    const displayName = targetStopName.replace(" 2", "");
 
-    // INCREASED to 0.08 (80 meters) so it doesn't accidentally skip stops!
-    if (isArriving || distanceKm < 0.08) { 
+    if (isArriving || distanceKm < 0.08) {
         etaDisplay.innerText = `Arriving at ${displayName} Now!`;
         etaDisplay.style.color = "#10b981";
     } else {
-        // THE FIX: Strictly prioritize the moving simulation over stale Firebase data
         let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
         if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
         if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
@@ -227,9 +228,9 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
         const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
-        
+
         etaDisplay.innerText = `Next Stop: ${displayName} in ${m}m ${s}s`;
-        etaDisplay.style.color = "#94a3b8";
+        etaDisplay.style.color = "#1e293b"; // CHANGED — dark navy, readable on light banner
     }
 }
 
@@ -518,49 +519,32 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime(); // Run immediately on load
 
-// --- EMERGENCY UI FIX & MODE TOGGLE OVERLAYS ---
-// 1. Create a brand new wrapper so we don't accidentally shrink the map!
-const bannerWrapper = document.createElement('div');
-Object.assign(bannerWrapper.style, {
-    position: 'fixed', // Fixed keeps it glued to the screen viewport
-    top: '20px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    backgroundColor: 'white',
-    padding: '12px 60px 12px 20px', // Extra right padding for the button
-    borderRadius: '12px',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-    zIndex: '99999', // Super high z-index to float above Leaflet
-    width: '90%',
-    maxWidth: '400px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: 'system-ui, sans-serif'
-});
+// --- MODE TOGGLE & MAP CONTROLS ---
+// 1. Gently inject the Recenter Button inside your ORIGINAL banner
+const topBanner = document.getElementById('eta-display').parentElement;
+topBanner.style.position = 'relative'; // Ensure the button stays inside the banner bounds
+topBanner.style.zIndex = '1000';      // ADD THIS LINE
+topBanner.style.overflow = 'visible'; // ADD THIS LINE
+topBanner.style.paddingRight = '50px'; // Add a little padding so text doesn't hit the button
 
-// Move the ETA text safely INSIDE our new wrapper
-etaDisplay.parentNode.insertBefore(bannerWrapper, etaDisplay);
-bannerWrapper.appendChild(etaDisplay);
-etaDisplay.style.margin = '0'; // Clear any default margins
-
-// 2. Inject the Recenter Button inside the wrapper
 const recenterBtn = document.createElement('div');
-recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
+recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
 Object.assign(recenterBtn.style, {
     position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '6px', borderRadius: '6px', backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    transition: '0.2s', border: '1px solid #e2e8f0'
+    padding: '6px', borderRadius: '6px', backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.15)', transition: '0.2s', zIndex: '999'
 });
+recenterBtn.onmouseover = () => recenterBtn.style.backgroundColor = '#f8fafc';
+recenterBtn.onmouseout = () => recenterBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
 recenterBtn.onclick = () => map.flyTo([currentLocation.lat, currentLocation.lng], 16, { animate: true, duration: 1.5 });
-bannerWrapper.appendChild(recenterBtn);
+topBanner.appendChild(recenterBtn);
 
-// 3. Create the Demo vs Live Toggle Switch
+// 2. Create the Demo vs Live Toggle Switch
 const toggleContainer = document.createElement('div');
 Object.assign(toggleContainer.style, {
-    position: 'fixed', // Fixed floats it over everything, ignoring map overflow limits
-    top: '85px', 
+    position: 'fixed', // Floats it over the map natively
+    top: '80px', 
     right: '20px', 
     backgroundColor: 'white', padding: '8px 14px', borderRadius: '30px',
     boxShadow: '0 4px 15px rgba(0,0,0,0.2)', zIndex: '99999',
@@ -576,10 +560,9 @@ toggleContainer.innerHTML = `
         <span id="toggle-knob" style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
     </label>
 `;
-// Append to BODY so Leaflet doesn't hide it
 document.body.appendChild(toggleContainer);
 
-// 4. Toggle Switch Logic
+// 3. Toggle Switch Logic
 document.getElementById('mode-toggle').addEventListener('change', (e) => {
     simActive = e.target.checked; 
     const modeLabel = document.getElementById('mode-label');
@@ -590,23 +573,18 @@ document.getElementById('mode-toggle').addEventListener('change', (e) => {
         // DEMO MODE VISUALS
         modeLabel.innerText = "Demo Mode"; modeLabel.style.color = "#3b82f6";
         toggleSlider.style.backgroundColor = "#3b82f6"; toggleKnob.style.transform = "translateX(0)";
-        
-        // Swap markers
         if (simBusMarker) simBusMarker.addTo(map);
         if (liveBusMarker) liveBusMarker.remove();
     } else {
         // LIVE MODE VISUALS
-        modeLabel.innerText = "Live Mode"; modeLabel.style.color = "#ef4444"; // Red for Live!
+        modeLabel.innerText = "Live Mode"; modeLabel.style.color = "#ef4444"; 
         toggleSlider.style.backgroundColor = "#ef4444"; toggleKnob.style.transform = "translateX(20px)";
-        
-        // Swap markers
         if (simBusMarker) simBusMarker.remove();
         if (liveBusMarker) liveBusMarker.addTo(map);
     }
     
-    // Force immediate UI updates
     refreshNearbyStops();
-    if (sidePanel.classList.contains('open')) updatePanelData();
+    if (sidePanel && sidePanel.classList.contains('open')) updatePanelData();
 });
 
 // --- LIVE ROUTE SIDE PANEL (STATEFUL FOR MULTIPLE BUSES) ---
