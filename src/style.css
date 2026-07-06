@@ -224,14 +224,14 @@ html, body {
 
 /* --- 1. Push Leaflet controls up so they don't hide behind our card --- */
 .leaflet-bottom {
-  bottom: 80px !important; /* Lifts the recenter button above our UI card */
+  bottom: 100px !important; /* Increased from 80px to keep it above the card */
   transition: 0.3s ease;
 }
 
 /* --- 2. Make the wrapper the actual Floating Card --- */
 .status-overlay { 
   position: absolute !important;
-  bottom: 15px !important;
+  bottom: 40px !important; /* INCREASED FROM 15px: Adjust this higher or lower! */
   left: 15px !important;
   right: 15px !important;
   top: auto !important; 
@@ -250,17 +250,4 @@ html, body {
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
-}
-
-/* --- 3. Strip all weird backgrounds off the text so it doesn't double-layer --- */
-#eta-display {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  position: static !important;
-  transform: none !important;
-  width: 100% !important;
-  text-align: center !important;
 }
