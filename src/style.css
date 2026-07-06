@@ -78,17 +78,6 @@ html, body {
   z-index: 1;
 }
 
-/* Invisible wrapper to keep the ETA display floating at the bottom */
-.status-overlay {
-  position: absolute !important;
-  bottom: 15px !important;
-  left: 15px !important;
-  right: 15px !important;
-  top: auto !important;       /* Forces JS to stop pushing it to the top */
-  transform: none !important; /* Clears any centering transforms from JS */
-  z-index: 1000 !important;
-} 
-
 /* Hide default Leaflet zoom controls for a cleaner UI */
 .leaflet-control-zoom {
   display: none;
@@ -111,13 +100,6 @@ html, body {
     transform: scale(1.35);
     opacity: 0;
   }
-}
-
-#eta-display {
-  margin: 0;
-  font-size: 16px;
-  font-weight: bold;
-  color: var(--accent-blue);
 }
 
 /* Bottom Navigation Bar */
@@ -240,24 +222,45 @@ html, body {
     z-index: 9999 !important;
 }
 
-/* Force the specific ETA text box to the bottom, bypassing JS */
-#eta-display, 
-#eta-display.parent,
+/* --- 1. Push Leaflet controls up so they don't hide behind our card --- */
+.leaflet-bottom {
+  bottom: 80px !important; /* Lifts the recenter button above our UI card */
+  transition: 0.3s ease;
+}
+
+/* --- 2. Make the wrapper the actual Floating Card --- */
 .status-overlay {
   position: absolute !important;
   bottom: 15px !important;
-  top: auto !important; 
   left: 15px !important;
   right: 15px !important;
+  top: auto !important; 
   transform: none !important;
-  z-index: 9999 !important; /* Forces it above all Leaflet map layers */
+  z-index: 9999 !important; 
   
-  /* Restoring the nice background so it looks like a card again */
+  /* The nice UI Card Look */
   background: rgba(30, 41, 59, 0.9) !important;
   backdrop-filter: blur(10px) !important;
   padding: 15px !important;
   border-radius: 16px !important;
   border: 1px solid rgba(255, 255, 255, 0.05) !important;
   box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+  
+  /* Centers the text inside perfectly */
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* --- 3. Strip all weird backgrounds off the text so it doesn't double-layer --- */
+#eta-display {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  position: static !important;
+  transform: none !important;
+  width: 100% !important;
   text-align: center !important;
 }
