@@ -579,25 +579,23 @@ toggleContainer.innerHTML = `
 // Append to BODY so Leaflet doesn't hide it
 document.body.appendChild(toggleContainer);
 
-// 4. Toggle Switch Logic
-document.getElementById('mode-toggle').addEventListener('change', (e) => {
-    simActive = e.target.checked; 
-    const modeLabel = document.getElementById('mode-label');
-    const toggleKnob = document.getElementById('toggle-knob');
-    const toggleSlider = document.getElementById('toggle-slider');
+// 4. Toggle Switch Logic (Linked to your Settings Page)
+const settingsToggle = document.getElementById('toggle-slider');
 
+settingsToggle.addEventListener('click', () => {
+    // Flip the mode (if it was false, make it true, and vice versa)
+    simActive = !simActive; 
+    
     if (simActive) {
-        // DEMO MODE VISUALS
-        modeLabel.innerText = "Demo Mode"; modeLabel.style.color = "#3b82f6";
-        toggleSlider.style.backgroundColor = "#3b82f6"; toggleKnob.style.transform = "translateX(0)";
+        // 🟢 DEMO MODE IS ON
+        settingsToggle.classList.add('active'); // Slides the knob to the right and turns it blue
         
         // Swap markers
         if (simBusMarker) simBusMarker.addTo(map);
         if (liveBusMarker) liveBusMarker.remove();
     } else {
-        // LIVE MODE VISUALS
-        modeLabel.innerText = "Live Mode"; modeLabel.style.color = "#ef4444"; // Red for Live!
-        toggleSlider.style.backgroundColor = "#ef4444"; toggleKnob.style.transform = "translateX(20px)";
+        // 🔴 LIVE MODE IS ON
+        settingsToggle.classList.remove('active'); // Slides the knob left and turns it gray
         
         // Swap markers
         if (simBusMarker) simBusMarker.remove();

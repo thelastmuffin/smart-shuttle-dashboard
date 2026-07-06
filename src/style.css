@@ -144,6 +144,22 @@ html, body {
   flex-direction: column;    /* ADD THIS */
 }
 
+/* --- Fix Tab Widths & Stop Cards from Cutting Off --- */
+* {
+  box-sizing: border-box; /* Forces all padding to stay inside the container's width */
+}
+
+.view {
+  width: 100%;
+}
+
+.page-content {
+  padding: 0 15px; /* Gives the same nice 15px margin as your map */
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden; /* Prevents side-to-side scrolling */
+}
+
 /* --- UI CARDS --- */
 .ui-card {
   background: var(--bg-card);
@@ -235,25 +251,29 @@ html, body {
   right: auto !important;
   bottom: auto !important;
   left: auto !important;
-  margin-left: auto !important; /* Pushes it neatly to the right edge of the card */
+  margin-left: auto !important;
   z-index: 1 !important;
 }
 
-/* --- OVERRIDE JS: Force the Next Stop bar to stay at the bottom --- */
-/* This stops JS from making the inner elements fly to the top of the screen */
+/* --- OVERRIDE JS: Force the Next Stop bar to stretch across the bottom --- */
 .status-overlay div,
 #eta-display {
   position: relative !important; 
   top: auto !important;
+  right: auto !important; /* Stops JS from pushing it to the right edge */
+  left: auto !important;
   transform: none !important;
+  width: 100% !important; /* Forces it to stretch to the edges of the card */
+  margin: 0 !important;
 }
 
-/* Keep the wrapper locked to the bottom */
+/* Keep the wrapper locked perfectly centered at the bottom */
 .status-overlay { 
   position: absolute !important;
   bottom: 40px !important;
-  left: 15px !important;
-  right: 15px !important;
+  left: 15px !important; /* Locks left side */
+  right: 15px !important; /* Locks right side */
+  width: auto !important;
   z-index: 9999 !important; 
   background: transparent !important;
   border: none !important;
@@ -265,7 +285,19 @@ html, body {
   align-items: center !important;
 }
 
-/* Ensure you can still click the UI card itself */
 .status-overlay > * {
   pointer-events: auto !important;
+}
+
+/* --- Keep Leaflet controls above the card --- */
+.leaflet-bottom {
+  bottom: 100px !important;
+  left: 0 !important; /* Ensures the leaflet controls don't get dragged right */
+  width: 100% !important; /* Gives Leaflet space to position its own buttons naturally */
+}
+
+/* Force Leaflet Recenter button to behave */
+.leaflet-bottom.leaflet-right {
+  right: auto !important;
+  left: 15px !important; /* Forces it to the bottom-left corner above your Next Stop card */
 }
