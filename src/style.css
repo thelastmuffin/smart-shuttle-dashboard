@@ -239,3 +239,25 @@ html, body {
 .leaflet-marker-icon {
     z-index: 9999 !important;
 }
+
+/* Force the specific ETA text box to the bottom, bypassing JS */
+#eta-display, 
+#eta-display.parent,
+.status-overlay {
+  position: absolute !important;
+  bottom: 15px !important;
+  top: auto !important; 
+  left: 15px !important;
+  right: 15px !important;
+  transform: none !important;
+  z-index: 9999 !important; /* Forces it above all Leaflet map layers */
+  
+  /* Restoring the nice background so it looks like a card again */
+  background: rgba(30, 41, 59, 0.9) !important;
+  backdrop-filter: blur(10px) !important;
+  padding: 15px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+  text-align: center !important;
+}
