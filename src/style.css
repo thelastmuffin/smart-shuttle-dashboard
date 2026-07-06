@@ -228,26 +228,29 @@ html, body {
   transition: 0.3s ease;
 }
 
-/* --- 2. Make the wrapper the actual Floating Card --- */
+/* --- 2. Make the wrapper an INVISIBLE container --- */
 .status-overlay { 
   position: absolute !important;
-  bottom: 40px !important; /* INCREASED FROM 15px: Adjust this higher or lower! */
+  bottom: 40px !important;
   left: 15px !important;
   right: 15px !important;
   top: auto !important; 
   transform: none !important;
   z-index: 9999 !important; 
   
-  /* The nice UI Card Look */
-  background: rgba(30, 41, 59, 0.9) !important;
-  backdrop-filter: blur(10px) !important;
-  padding: 15px !important;
-  border-radius: 16px !important;
-  border: 1px solid rgba(255, 255, 255, 0.05) !important;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+  /* REMOVED: Backgrounds, borders, and shadows! */
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important; /* Lets you click the map through the empty space */
   
-  /* Centers the text inside perfectly */
+  /* Centers the JS card inside perfectly */
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
+}
+
+/* Ensure the actual Next Stop card remains clickable */
+.status-overlay > * {
+  pointer-events: auto !important;
 }
