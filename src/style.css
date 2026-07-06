@@ -82,7 +82,7 @@ body {
   top: auto !important;       /* Forces JS to stop pushing it to the top */
   transform: none !important; /* Clears any centering transforms from JS */
   z-index: 1000 !important;
-}
+} 
 
 /* Hide default Leaflet zoom controls for a cleaner UI */
 .leaflet-control-zoom {
