@@ -519,42 +519,36 @@ setInterval(updateTime, 1000);
 updateTime(); // Run immediately on load
 
 // --- EMERGENCY UI FIX & MODE TOGGLE OVERLAYS ---
-// 1. Create a brand new wrapper so we don't accidentally shrink the map!
-const bannerWrapper = document.createElement('div');
-Object.assign(bannerWrapper.style, {
-    position: 'fixed', // Fixed keeps it glued to the screen viewport
-    top: '20px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    backgroundColor: 'white',
-    padding: '12px 60px 12px 20px', // Extra right padding for the button
-    borderRadius: '12px',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-    zIndex: '99999', // Super high z-index to float above Leaflet
-    width: '90%',
-    maxWidth: '400px',
+
+// --- CUSTOM RECENTER BUTTON ---
+const recenterBtn = document.createElement('div');
+recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
+
+// Perfect Square Styling floating on the right
+Object.assign(recenterBtn.style, {
+    position: 'absolute',
+    right: '15px',
+    bottom: '100px', // Sits perfectly right above your Next Stop card
+    width: '42px',
+    height: '42px',
+    cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontFamily: 'system-ui, sans-serif'
+    borderRadius: '12px',
+    backgroundColor: '#1e293b', // Matches your dark theme UI cards
+    color: '#3b82f6',           // Your accent blue!
+    boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    zIndex: '9999'
 });
 
-// Move the ETA text safely INSIDE our new wrapper
-etaDisplay.parentNode.insertBefore(bannerWrapper, etaDisplay);
-bannerWrapper.appendChild(etaDisplay);
-etaDisplay.style.margin = '0'; // Clear any default margins
-
-// 2. Inject the Recenter Button inside the wrapper
-const recenterBtn = document.createElement('div');
-recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
-Object.assign(recenterBtn.style, {
-    position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '6px', borderRadius: '6px', backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    transition: '0.2s', border: '1px solid #e2e8f0'
-});
+// Make it clickable
 recenterBtn.onclick = () => map.flyTo([currentLocation.lat, currentLocation.lng], 16, { animate: true, duration: 1.5 });
-bannerWrapper.appendChild(recenterBtn);
+
+// Append it directly to the map wrapper so it stays in bounds
+const mapWrapper = document.querySelector('.map-wrapper');
+if (mapWrapper) mapWrapper.appendChild(recenterBtn);
 
 // 4. Toggle Switch Logic (Linked to your Settings Page)
 const settingsToggle = document.getElementById('toggle-slider');
