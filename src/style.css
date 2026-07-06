@@ -229,7 +229,7 @@ html, body {
 }
 
 /* --- 2. Make the wrapper the actual Floating Card --- */
-.status-overlay {
+.status-overlay { 
   position: absolute !important;
   bottom: 15px !important;
   left: 15px !important;
