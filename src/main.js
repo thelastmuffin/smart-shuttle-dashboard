@@ -550,7 +550,6 @@ const seriIskandarBus = L.marker([4.365577, 100.9803029], {
 }).addTo(map).on('click', () => openLiveSchedulePanel('seri'));
 
 // --- SETTINGS TOGGLE SWITCH LOGIC ---
-let simActive = true; // Assuming Demo Mode starts checked
 const modeToggle = document.getElementById('mode-toggle');
 
 if (modeToggle) {
