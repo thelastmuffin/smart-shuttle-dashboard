@@ -1,7 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, onValue, push } from "firebase/database";
 
-// --- 1. FIREBASE SETUP ---
+// ==========================================
+// 1. FIREBASE SETUP
+// ==========================================
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
@@ -10,11 +12,24 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const etaDisplay = document.getElementById("eta-display");
 
-// --- 2. MAP INITIALIZATION ---
-const map = L.map('map', { zoomControl: false });
+// ==========================================
+// 2. GLOBAL STATE VARIABLES
+// ==========================================
+let liveBusMarker = null;
+let currentTargetIndex = 1; // Start looking for the 2nd stop (An-Nur Mosque)
+let lastLoggedTimestamp = "";
+let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; // Main Gate default
+let panelUpdateInterval = null;
+let currentPanelBusType = 'campus'; 
 
-// --- CUSTOM ICONS ---
-// 1. The Droppable Person (Pegman)
+// ==========================================
+// 3. MAP & ICON INITIALIZATION
+// ==========================================
+const map = L.map('map', { zoomControl: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
 const pegmanIcon = L.divIcon({
     html: `
       <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; z-index: 1000;">
@@ -28,7 +43,6 @@ const pegmanIcon = L.divIcon({
     popupAnchor: [0, -40]
 });
 
-// 2. Top-Down GPS Navigation Arrow (Dynamic Generator)
 function getGpsArrowIcon(idName, hexColor) {
     return L.divIcon({
         html: `<div id="${idName}" style="
@@ -45,101 +59,41 @@ function getGpsArrowIcon(idName, hexColor) {
     });
 }
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
-}).addTo(map);
-
-// --- 3. THE DATA DICTIONARY ---
+// ==========================================
+// 4. THE DATA DICTIONARY
+// ==========================================
 const stopCoords = {
   "PMMD": { lat: 4.3883576, lng: 100.9672179 },
   "An-Nur Mosque": { lat: 4.3860407, lng: 100.9738842 },
   "Main Gate": { lat: 4.3856013, lng: 100.9789672 },
-  "V6": { lat: 4.383104, lng: 100.974502 }, // Renamed from V7 based on the Excel schedule
+  "V6": { lat: 4.383104, lng: 100.974502 },
   "Chancellor Complex": { lat: 4.381329, lng: 100.970230 },
-  "Chancellor Complex 2": { lat: 4.3823948, lng: 100.9703333 }, // The NEW second stop
+  "Chancellor Complex 2": { lat: 4.3823948, lng: 100.9703333 },
   "R&D": { lat: 4.3792507, lng: 100.9608721 },
   "V4": { lat: 4.3887305, lng: 100.9651686 },
   "V5": { lat: 4.3843636, lng: 100.9626794 },
   "Block L": { lat: 4.3851762, lng: 100.9709521 }
 };
 
-// The exact sequence from your Excel CSV
 const routeSequence = [
   "PMMD", "An-Nur Mosque", "Main Gate", "V6", "Chancellor Complex",
   "R&D", "V5", "V4", "PMMD", "Block L", "Chancellor Complex 2", "V6",
   "An-Nur Mosque", "PMMD"
 ];
 
-const utpBounds = L.latLngBounds(
-  Object.values(stopCoords).map(({ lat, lng }) => [lat, lng])
-);
+const utpBounds = L.latLngBounds(Object.values(stopCoords).map(({ lat, lng }) => [lat, lng]));
 
 function focusUtpMap() {
   map.invalidateSize();
-  setTimeout(() => {
-    map.fitBounds(utpBounds, { padding: [25, 25], maxZoom: 15 });
-  }, 150);
+  setTimeout(() => map.fitBounds(utpBounds, { padding: [25, 25], maxZoom: 15 }), 150);
 }
-
 focusUtpMap();
 window.addEventListener('load', focusUtpMap);
 window.addEventListener('resize', focusUtpMap);
 
-const stopMarkers = {};
-
-// Draw markers for all physical stops
-Object.entries(stopCoords).forEach(([name, coords]) => {
-  const displayName = name.replace(" 2", ""); // Hides the '2' from the judges
-
-  const marker = L.marker([coords.lat, coords.lng], {
-    icon: L.divIcon({
-      html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
-      className: 'clear-icon',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8]
-    })
-  }).addTo(map);
-
-// THE FIX: Calculate live ETA when the stop is clicked!
-  marker.on('click', () => {
-      if (!liveBusMarker) return; // Wait for Firebase to load the bus
-      let currentBusPos = liveBusMarker.getLatLng();
-      
-      const targetRouteIndex = getNextBusStopIndex(name);
-      const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
-      const m = Math.floor(rawMins);
-      const s = Math.floor((rawMins - m) * 60);
-      
-      marker.bindPopup(`
-        <div style="text-align:center; font-family: system-ui, sans-serif;">
-            <b style="font-size:14px; color:#1e293b;">${displayName}</b><br>
-            <div style="margin-top:4px; font-size:13px; color:#3b82f6; font-weight:bold; background:#eff6ff; padding:4px 8px; border-radius:6px; border: 1px solid #bfdbfe;">
-                Bus ETA: ${m}m ${s}s
-            </div>
-        </div>
-      `).openPopup();
-  });
-});
-
-// --- 4. THE GEOFENCING LOGIC ---
-let simBusMarker = null;
-let liveBusMarker = null;
-let currentTargetIndex = 1; // We start at 1, looking for the 2nd stop in the loop
-
-function updateHighlightedStop() {
-    Object.entries(stopMarkers).forEach(([name, marker]) => {
-        const isNextStop = name === routeSequence[currentTargetIndex];
-        const color = isNextStop ? '#ef4444' : '#3b82f6'; // Red for next stop, blue for others
-
-        marker.setIcon(L.divIcon({
-            html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
-            className: 'clear-icon',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
-        }));
-    });
-}
-
+// ==========================================
+// 5. HELPER FUNCTIONS (MATH & ETA)
+// ==========================================
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; 
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -149,16 +103,14 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c; 
 }
 
-let lastLoggedTimestamp = "";
+function getNextBusStopIndex(stopName) {
+    for (let i = 0; i < routeSequence.length; i++) {
+        let checkIndex = (currentTargetIndex + i) % routeSequence.length;
+        if (routeSequence[checkIndex] === stopName) return checkIndex;
+    }
+    return 0; 
+}
 
-const busLocationRef = ref(db, 'bus1/location');
-
-// --- FIREBASE LIVE LISTENER ---
-const busLocationRef = ref(db, 'bus1/location');
-let lastLoggedTimestamp = "";
-let currentTargetIndex = 1; // Start looking for the 2nd stop
-
-// --- ACCUMULATED ETA CALCULATOR ---
 function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
     const campusBusSpeedKmH = 22; 
     const boardingDelayMinutes = 0.3; 
@@ -206,12 +158,67 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
     }
 }
 
+function updateHighlightedStop() {
+    Object.entries(stopMarkers).forEach(([name, marker]) => {
+        const isNextStop = name === routeSequence[currentTargetIndex];
+        const color = isNextStop ? '#ef4444' : '#3b82f6';
+        marker.setIcon(L.divIcon({
+            html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
+            className: 'clear-icon',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        }));
+    });
+}
+
+// ==========================================
+// 6. POPULATE MAP STOPS
+// ==========================================
+const stopMarkers = {};
+Object.entries(stopCoords).forEach(([name, coords]) => {
+  const displayName = name.replace(" 2", ""); 
+
+  const marker = L.marker([coords.lat, coords.lng], {
+    icon: L.divIcon({
+      html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
+      className: 'clear-icon',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
+    })
+  }).addTo(map);
+
+  marker.on('click', () => {
+      if (!liveBusMarker) return; 
+      let currentBusPos = liveBusMarker.getLatLng();
+      
+      const targetRouteIndex = getNextBusStopIndex(name);
+      const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
+      const m = Math.floor(rawMins);
+      const s = Math.floor((rawMins - m) * 60);
+      
+      marker.bindPopup(`
+        <div style="text-align:center; font-family: system-ui, sans-serif;">
+            <b style="font-size:14px; color:#1e293b;">${displayName}</b><br>
+            <div style="margin-top:4px; font-size:13px; color:#3b82f6; font-weight:bold; background:#eff6ff; padding:4px 8px; border-radius:6px; border: 1px solid #bfdbfe;">
+                Bus ETA: ${m}m ${s}s
+            </div>
+        </div>
+      `).openPopup();
+  });
+  stopMarkers[name] = marker;
+});
+
+// ==========================================
+// 7. FIREBASE LIVE LISTENER
+// ==========================================
+const busLocationRef = ref(db, 'bus1/location');
+
 onValue(busLocationRef, (snapshot) => {
   const data = snapshot.val();
   
   if (data && data.lat && data.lng) {
     
-    // --- 1. HISTORICAL DATA LOGGER ---
+    // HISTORICAL DATA LOGGER
     if (data.alerts && data.timestamp !== lastLoggedTimestamp) {
         const isBraking = data.alerts.harsh_brake === true;
         const isPothole = data.alerts.pothole === true;
@@ -237,7 +244,7 @@ onValue(busLocationRef, (snapshot) => {
         }
     }
 
-    // --- 2. Move the Live Bus Marker ---
+    // LIVE MARKER
     if (liveBusMarker === null) {
         liveBusMarker = L.marker([data.lat, data.lng], { icon: getGpsArrowIcon('live-bus-arrow', '#10b981') })
             .on('click', () => openLiveSchedulePanel('campus'))
@@ -246,7 +253,7 @@ onValue(busLocationRef, (snapshot) => {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
     
-    // --- 3. THE GEOFENCE SNAP (Self-Healing Logic) ---
+    // GEOFENCE SNAP
     for (let i = 0; i < routeSequence.length; i++) {
         const checkCoords = stopCoords[routeSequence[i]];
         const checkDist = calculateDistance(data.lat, data.lng, checkCoords.lat, checkCoords.lng);
@@ -258,12 +265,11 @@ onValue(busLocationRef, (snapshot) => {
         }
     }
 
-    // --- 4. Identify Target Coordinates & Distance ---
+    // UPDATE UI
     const targetStopName = routeSequence[currentTargetIndex];
     const targetCoords = stopCoords[targetStopName];
     const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
 
-    // --- 5. Calculate ETA & Update UI ---
     updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
     refreshNearbyStops();
 
@@ -273,53 +279,32 @@ onValue(busLocationRef, (snapshot) => {
   }
 });
 
-// Navigation Logic
+// ==========================================
+// 8. NAVIGATION, UI, & NEARBY STOPS
+// ==========================================
 const navItems = document.querySelectorAll('.nav-item');
 const views = document.querySelectorAll('.view');
 
 navItems.forEach((item, index) => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
-        
-        // 1. Remove 'active' class from all, add to clicked
         navItems.forEach(nav => nav.classList.remove('active'));
         item.classList.add('active');
         
-        // 2. Hide all views, show the one matching the index
         views.forEach(view => view.style.display = 'none');
-        views[index].style.display = 'flex'; // Changed from 'block' to 'flex'
+        views[index].style.display = 'flex'; 
         
-        // 3. THE LEAFLET FIX: Force the map to redraw if the Map tab (index 0) is clicked
-        if (index === 0) {
-            focusUtpMap();
-        }
+        if (index === 0) focusUtpMap();
     });
 });
-
-// --- 5. NEARBY STOPS LOGIC (HYBRID: USER DISTANCE, BUS ETA) ---
-let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; // Main Gate default
-
-// HELPER: Finds the bus's NEXT encounter with a specific stop
-function getNextBusStopIndex(stopName) {
-    for (let i = 0; i < routeSequence.length; i++) {
-        // Start checking from where the bus is currently heading
-        let checkIndex = (currentTargetIndex + i) % routeSequence.length;
-        if (routeSequence[checkIndex] === stopName) {
-            return checkIndex;
-        }
-    }
-    return 0; // Fallback
-}
 
 function refreshNearbyStops() {
     const nearbyList = document.getElementById("nearby-stops-list"); 
     if (!nearbyList) return;
 
     let allStops = [];
-
-    // 1. Calculate true geometric distance from PEGMAN to EVERY stop
     Object.entries(stopCoords).forEach(([name, coords]) => {
-        if (name === "Chancellor Complex 2") return; // Hide ghost stop
+        if (name === "Chancellor Complex 2") return; 
 
         const distKm = calculateDistance(currentLocation.lat, currentLocation.lng, coords.lat, coords.lng);
         allStops.push({ 
@@ -329,23 +314,16 @@ function refreshNearbyStops() {
         });
     });
 
-    // 2. SORT the array by distance to the user (closest first)
     allStops.sort((a, b) => a.distanceKm - b.distanceKm);
-
-    // 3. Slice the top 3 nearest physical stops to the user
     const top3Stops = allStops.slice(0, 3);
     const now = new Date();
 
-    // THE NEW WAY:
     if (!liveBusMarker) return; 
     let currentBusPos = liveBusMarker.getLatLng();
 
-    // 4. Inject into HTML with LIVE SECONDS
     nearbyList.innerHTML = top3Stops.map((stop) => {
-        
         const targetRouteIndex = getNextBusStopIndex(stop.name);
         const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
-        
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
 
@@ -369,14 +347,12 @@ function refreshNearbyStops() {
     }).join("");
 }
 
-// --- EXHIBITION DEMO: DRAGGABLE USER LOCATION ---
+// User Location Dragger
 const userMarker = L.marker([currentLocation.lat, currentLocation.lng], { 
-    draggable: true, 
-    icon: pegmanIcon 
+    draggable: true, icon: pegmanIcon 
 }).addTo(map);
 
 userMarker.bindPopup("<b>Exhibition Mode</b><br>Drag me to find the nearest stop!").openPopup();
-
 userMarker.on('dragend', function (event) {
     const userPos = event.target.getLatLng();
     currentLocation = { lat: userPos.lat, lng: userPos.lng };
@@ -385,47 +361,35 @@ userMarker.on('dragend', function (event) {
 
 refreshNearbyStops();
 
-// --- LIVE CLOCK ---
+// Live Clock
 function updateTime() {
     const now = new Date();
-    // Formats time as HH:MM (e.g., 14:30)
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const liveTimeEl = document.getElementById('live-time');
     if (liveTimeEl) liveTimeEl.innerText = timeString;
 }
 setInterval(updateTime, 1000);
-updateTime(); // Run immediately on load
+updateTime(); 
 
-// --- CUSTOM RECENTER BUTTON ---
+// Recenter Map Button
 const recenterBtn = document.createElement('div');
 recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
 
 Object.assign(recenterBtn.style, {
-    position: 'absolute',
-    right: '15px',
-    bottom: '15px', // CHANGED FROM 100px: Drops it perfectly into the corner!
-    width: '42px',
-    height: '42px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '12px',
-    backgroundColor: '#1e293b', 
-    color: '#3b82f6',          
-    boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    zIndex: '9999'
+    position: 'absolute', right: '15px', bottom: '15px', width: '42px', height: '42px',
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: '12px', backgroundColor: '#1e293b', color: '#3b82f6',          
+    boxShadow: '0 4px 15px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', zIndex: '9999'
 });
 
-// Make it clickable
 recenterBtn.onclick = () => map.flyTo([currentLocation.lat, currentLocation.lng], 16, { animate: true, duration: 1.5 });
-
-// Append it directly to the map wrapper so it stays in bounds
 const mapWrapper = document.querySelector('.map-wrapper');
 if (mapWrapper) mapWrapper.appendChild(recenterBtn);
 
-// --- LIVE ROUTE SIDE PANEL (STATEFUL FOR MULTIPLE BUSES) ---
+
+// ==========================================
+// 9. SIDE PANEL (SCHEDULE UI)
+// ==========================================
 const panelStyle = document.createElement('style');
 panelStyle.innerHTML = `
     #bus-side-panel {
@@ -477,8 +441,6 @@ document.body.insertAdjacentHTML('beforeend', panelHtml);
 
 const sidePanel = document.getElementById('bus-side-panel');
 const panelStopList = document.getElementById('panel-stop-list');
-let panelUpdateInterval = null;
-let currentPanelBusType = 'campus'; // Tracks which bus we are viewing
 
 document.getElementById('close-panel-btn').addEventListener('click', () => sidePanel.classList.remove('open'));
 map.on('click', () => sidePanel.classList.remove('open'));
@@ -490,20 +452,16 @@ function updatePanelData() {
     const isCampus = currentPanelBusType === 'campus';
     const now = new Date();
 
-    // 1. DYNAMIC HEADER INFO
     document.getElementById('panel-bus-title').innerHTML = isCampus ? '🚌 Shuttle 1 <span class="bus-plate">ALM 4021</span>' : '🚌 Shuttle 2 <span class="bus-plate">VAF 9091</span>';
     document.getElementById('panel-driver-name').innerText = isCampus ? 'Ahmad F.' : 'Kamal R.';
     
     const badge = document.getElementById('panel-route-badge');
     badge.innerText = isCampus ? 'WITHIN UTP CAMPUS' : 'SERI ISKANDAR';
     badge.style.color = isCampus ? '#60a5fa' : '#f59e0b';
-    
-    // Clear the old box styling out
     badge.style.backgroundColor = 'transparent';
     badge.style.border = 'none';
     badge.style.padding = '0';
 
-    // 2. LIST GENERATOR
     let listHTML = "";
     for (let i = 0; i < routeSequence.length; i++) {
         const checkIndex = (currentTargetIndex + i) % routeSequence.length;
@@ -522,7 +480,6 @@ function updatePanelData() {
         const isNextStop = (i === 0);
         const dotClass = (isNextStop && isCampus) ? "stop-dot next-stop" : "stop-dot";
 
-        // THE FIX: Hide ETAs for Seri Iskandar bus
         const nameDisplay = (isNextStop && isCampus) 
             ? `${displayName} <span style="background:rgba(239, 68, 68, 0.2); color:#f87171; border: 1px solid rgba(239,68,68,0.3); font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold;">HEADING HERE</span>` 
             : displayName;
@@ -547,14 +504,13 @@ function updatePanelData() {
     panelStopList.innerHTML = listHTML;
 }
 
-// Added the parameter requirement here!
 function openLiveSchedulePanel(busType) {
     currentPanelBusType = busType;
     sidePanel.classList.add('open');
     updatePanelData(); 
     
     if (panelUpdateInterval) clearInterval(panelUpdateInterval);
-    if (busType === 'campus') { // Only live-tick the seconds if it's the moving bus!
+    if (busType === 'campus') { 
         panelUpdateInterval = setInterval(() => {
             if (sidePanel.classList.contains('open')) updatePanelData();
             else clearInterval(panelUpdateInterval); 
@@ -562,12 +518,13 @@ function openLiveSchedulePanel(busType) {
     }
 }
 
-// --- STATIONARY SERI ISKANDAR BUS ---
-// 1. Create a distinct Amber/Orange icon for the off-campus bus
+// ==========================================
+// 10. STATIONARY SERI ISKANDAR BUS
+// ==========================================
 const stationaryBusIcon = L.divIcon({
     html: `<div style="
         width: 34px; height: 34px; 
-        background: #f59e0b; /* Amber background */
+        background: #f59e0b; 
         border: 2px solid white; 
         border-radius: 50%; 
         display: flex; align-items: center; justify-content: center;
@@ -580,9 +537,6 @@ const stationaryBusIcon = L.divIcon({
     popupAnchor: [0, -20]
 });
 
-// 2. Place the marker and bind a styled popup
 const seriIskandarBus = L.marker([4.365577, 100.9803029], { 
-    icon: getGpsArrowIcon('seri-bus-arrow', '#f59e0b') // <--- FIXED THIS (Now Amber!)
-})
-    .addTo(map)
-    .on('click', () => openLiveSchedulePanel('seri'));
+    icon: getGpsArrowIcon('seri-bus-arrow', '#f59e0b') 
+}).addTo(map).on('click', () => openLiveSchedulePanel('seri'));
