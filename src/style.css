@@ -110,30 +110,32 @@ html, body {
   }
 }
 
-/* Bottom Navigation Bar */
+/* --- BOTTOM NAVIGATION BAR --- */
 .bottom-nav {
-  display: flex;
-  justify-content: space-around;
-  padding: 15px 10px 25px; /* Extra bottom padding for iPhone home bar */
-  background-color: var(--bg-dark);
-  border-top: 1px solid rgba(255,255,255,0.05);
+  display: grid !important;
+  grid-template-columns: repeat(5, 1fr) !important; /* Mathematically forces 5 identical columns */
+  width: 100%;
+  background: var(--bg-card);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 10px 0 20px 0; /* Adjust bottom padding if needed for mobile safe areas */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 9999;
 }
 
 .nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-decoration: none;
   color: var(--text-muted);
   font-size: 11px;
   gap: 5px;
-  transition: 0.2s;
-  
-  /* --- THE BULLETPROOF FIX --- */
-  flex: 1 1 0px; 
-  min-width: 0; 
-  width: 100%;
-  overflow: hidden; /* Stops long text from breaking the layout */
+  transition: 0.2s ease;
+  width: 100%; /* Fills its rigid grid cell perfectly */
+  overflow: hidden; 
 }
 
 .nav-item.active {
@@ -329,4 +331,27 @@ html, body {
   width: 20px !important;
   height: 20px !important;
   fill: var(--text-main) !important;
+}
+
+/* --- CUSTOM TOGGLE SWITCH --- */
+.toggle {
+  width: 44px !important;
+  height: 24px !important;
+  border-radius: 12px;
+  position: relative;
+  transition: background-color 0.3s ease;
+  box-sizing: border-box;
+}
+
+#toggle-knob {
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  /* This creates the smooth sliding animation */
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); 
 }

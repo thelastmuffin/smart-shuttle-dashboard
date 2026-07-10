@@ -17,6 +17,7 @@ const etaDisplay = document.getElementById("eta-display");
 // ==========================================
 let simActive = true; // <-- ADDED HERE FOR GLOBAL ACCESS
 let liveBusMarker = null;
+let currentBusAngle = 0;
 let currentTargetIndex = 1; // Start looking for the 2nd stop (An-Nur Mosque)
 let lastLoggedTimestamp = "";
 let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; // Main Gate default
@@ -238,18 +239,55 @@ function processFirebaseData(data) {
         }
     }
 
-    // LIVE MARKER
+   // LIVE MARKER
     if (liveBusMarker === null) {
-        const busImage = L.icon({
-            iconUrl: '/bus-yellow.png', // Looks in your public folder
-            iconSize: [28, 60],       // Adjust these numbers based on your image's actual shape! [width, height]
-            iconAnchor: [14, 30],     // The center point of the image
+        
+        // We put the image inside a 60x60 square container. 
+        // This stops the edges of the bus from clipping when it rotates!
+        const busImage = L.divIcon({
+            html: `
+              <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                <img id="live-bus-img" src="/bus-yellow.png" style="width: 50px; height: auto; transform: rotate(0deg); transition: transform 0.6s linear; filter: drop-shadow(2px 5px 4px rgba(0,0,0,0.4));">
+              </div>
+            `,
+            className: 'clear-icon',
+            iconSize: [60, 60],
+            iconAnchor: [30, 30], 
             popupAnchor: [0, -30]
         });
+
         liveBusMarker = L.marker([data.lat, data.lng], { icon: busImage })
             .on('click', () => openLiveSchedulePanel('campus'))
             .addTo(map); 
+
     } else {
+        // --- ROTATION MATH ---
+        const oldPos = liveBusMarker.getLatLng();
+        const dx = data.lng - oldPos.lng;
+        const dy = data.lat - oldPos.lat;
+
+        // Only calculate a new angle if the bus actually moved a measurable distance
+        if (Math.abs(dx) > 0.00001 || Math.abs(dy) > 0.00001) {
+            
+            // Calculate the target angle (Math.atan2 is 0 at East, 90 at North)
+            // CSS rotation is the opposite (negative is counter-clockwise), so we invert it.
+            const targetAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
+
+            // Shortest-Path Math: Prevent the bus from spinning 360 degrees when crossing West
+            let angleDiff = targetAngle - (currentBusAngle % 360);
+            if (angleDiff > 180) angleDiff -= 360;
+            if (angleDiff < -180) angleDiff += 360;
+
+            currentBusAngle += angleDiff;
+
+            // Apply the rotation to the DOM element
+            const busImgElement = document.getElementById('live-bus-img');
+            if (busImgElement) {
+                busImgElement.style.transform = `rotate(${currentBusAngle}deg)`;
+            }
+        }
+
+        // Move the actual marker to the new coordinates
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
     
