@@ -8,78 +8,53 @@
   --accent-green: #10b981;
 }
 
+/* 1. Kill all outer browser scrolling completely */
 html, body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--bg-dark);
-  color: var(--text-main);
-  display: flex;
-  justify-content: center;
-  
-  /* The Magic Fix for Mobile Browsers */
   height: 100%;
-  height: 100dvh; 
-  
-  overflow: hidden; /* Prevents bouncing on mobile */
+  overflow: hidden; 
 }
 
-/* Mobile App Container */
+/* 2. Lock the Main Container */
 #app-container {
-  max-width: 450px; /* Locks the maximum width for PC */
+  max-width: 450px;
   width: 100%;
-  height: 100vh; /* Locks the height to exactly the window size */
+  height: 100%; /* Use 100% instead of 100vh for better mobile compatibility */
   margin: 0 auto;
   background-color: var(--bg-dark);
   position: relative;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Kills the outer jumping scrollbar completely! */
-  box-shadow: 0 0 20px rgba(0,0,0,0.5); /* Nice shadow for PC viewing */
-}
-
-/* Top Header */
-.app-header {
-  display: flex;
-  align-items: center;
-  padding: 20px 15px;
-  background-color: var(--bg-dark);
-  
-  /* Add these two lines to lock it: */
-  width: 100%;
-  flex-shrink: 0; 
-}
-
-.logo-icon {
-  font-size: 24px;
-  background: var(--bg-card);
-  padding: 10px;
-  border-radius: 12px;
-}
-
-.app-header h1 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.app-header p {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* Makes the map a large square and stops it from squishing */
-.map-wrapper {
-  flex: none !important; 
-  width: calc(100% - 30px);
-  height: calc(100vw - 30px); /* Creates a perfect square based on screen width */
-  max-height: 450px; /* Puts a safe cap on it for desktop/tablet screens */
-  position: relative; 
-  margin: 0 15px;
-  border-radius: 24px;
   overflow: hidden; 
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+/* 3. Protect the Header */
+.app-header {
+  width: 100%;
+  flex-shrink: 0;
+  box-sizing: border-box; /* Forces padding to stay INSIDE the 100% width */
+}
+
+/* 4. The Views (This fixes the scrolling and the width explosion) */
+.view {
+  flex: 1;
+  width: 100%;
+  min-height: 0; /* THE SCROLL FIX: Forces Flexbox to allow scrolling */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 90px;
+  box-sizing: border-box; /* THE WIDTH FIX: Stops elements from stretching the screen */
+}
+
+/* 5. Fix the Map Wrapper specifically */
+.map-wrapper {
+  width: auto; /* Replaces width: 100% to stop it from breaking the margins */
+  margin: 0 15px; 
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
 }
 
 /* Hides the annoying floating Leaflet watermark */
