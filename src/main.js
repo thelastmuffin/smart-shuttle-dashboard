@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, push } from "firebase/database";
+import { getDatabase, ref, onValue, push, get} from "firebase/database";
 
 // ==========================================
 // 1. FIREBASE SETUP
@@ -240,7 +240,13 @@ function processFirebaseData(data) {
 
     // LIVE MARKER
     if (liveBusMarker === null) {
-        liveBusMarker = L.marker([data.lat, data.lng], { icon: getGpsArrowIcon('live-bus-arrow', '#10b981') })
+        const busImage = L.icon({
+            iconUrl: '/bus-yellow.png', // Looks in your public folder
+            iconSize: [28, 60],       // Adjust these numbers based on your image's actual shape! [width, height]
+            iconAnchor: [14, 30],     // The center point of the image
+            popupAnchor: [0, -30]
+        });
+        liveBusMarker = L.marker([data.lat, data.lng], { icon: busImage })
             .on('click', () => openLiveSchedulePanel('campus'))
             .addTo(map); 
     } else {
@@ -550,14 +556,14 @@ const seriIskandarBus = L.marker([4.365577, 100.9803029], {
 }).addTo(map).on('click', () => openLiveSchedulePanel('seri'));
 
 // --- SETTINGS TOGGLE SWITCH LOGIC ---
-const modeToggle = document.getElementById('mode-toggle');
+const toggleSlider = document.getElementById('toggle-slider');
+const toggleKnob = document.getElementById('toggle-knob');
+const modeLabel = document.getElementById('mode-label');
 
-if (modeToggle) {
-    modeToggle.addEventListener('change', (e) => {
-        simActive = e.target.checked;
-        const modeLabel = document.getElementById('mode-label');
-        const toggleKnob = document.getElementById('toggle-knob');
-        const toggleSlider = document.getElementById('toggle-slider');
+if (toggleSlider && toggleKnob && modeLabel) {
+    toggleSlider.addEventListener('click', () => {
+        // Manually flip the boolean from true to false, or false to true
+        simActive = !simActive; 
         
         if (simActive) {
             modeLabel.innerText = "Demo Mode";
@@ -568,13 +574,24 @@ if (modeToggle) {
             modeLabel.innerText = "Live Mode";
             modeLabel.style.color = "#ef4444"; // Red for Live hardware
             toggleSlider.style.backgroundColor = "#ef4444";
-            toggleKnob.style.transform = "translateX(20px)";
+            toggleKnob.style.transform = "translateX(20px)"; // Moves knob to the right
         }
         
-        // Destroy the marker when switching so it cleanly respawns at the new data location
+        // Destroy the old marker
         if (liveBusMarker) {
             map.removeLayer(liveBusMarker);
             liveBusMarker = null; 
         }
+
+        // FORCE INSTANT DATA FETCH: Read the new folder immediately!
+        const targetPath = simActive ? 'bus_demo/location' : 'bus1/location';
+        get(ref(db, targetPath)).then((snapshot) => {
+            if (snapshot.exists()) {
+                processFirebaseData(snapshot.val()); 
+            } else {
+                etaDisplay.innerText = "Bus Offline";
+                etaDisplay.style.color = "#dc3545"; 
+            }
+        }).catch((err) => console.error("Data fetch error:", err));
     });
 }
