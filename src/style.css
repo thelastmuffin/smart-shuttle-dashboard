@@ -128,6 +128,7 @@ html, body {
   font-size: 11px;
   gap: 5px;
   transition: 0.2s;
+  flex: 1;
 }
 
 .nav-item.active {

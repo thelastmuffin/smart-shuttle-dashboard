@@ -15,12 +15,13 @@ const etaDisplay = document.getElementById("eta-display");
 // ==========================================
 // 2. GLOBAL STATE VARIABLES
 // ==========================================
+let simActive = true; // <-- ADDED HERE FOR GLOBAL ACCESS
 let liveBusMarker = null;
 let currentTargetIndex = 1; // Start looking for the 2nd stop (An-Nur Mosque)
 let lastLoggedTimestamp = "";
 let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; // Main Gate default
 let panelUpdateInterval = null;
-let currentPanelBusType = 'campus'; 
+let currentPanelBusType = 'campus';
 
 // ==========================================
 // 3. MAP & ICON INITIALIZATION
@@ -209,13 +210,10 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 });
 
 // ==========================================
-// 7. FIREBASE LIVE LISTENER
+// 7. FIREBASE LIVE LISTENER (DUAL MODE)
 // ==========================================
-const busLocationRef = ref(db, 'bus1/location');
 
-onValue(busLocationRef, (snapshot) => {
-  const data = snapshot.val();
-  
+function processFirebaseData(data) {
   if (data && data.lat && data.lng) {
     
     // HISTORICAL DATA LOGGER
@@ -228,13 +226,9 @@ onValue(busLocationRef, (snapshot) => {
             lastLoggedTimestamp = data.timestamp; 
             const logsRef = ref(db, 'bus1/event_logs');
             push(logsRef, {
-                time: data.timestamp,
-                lat: data.lat,
-                lng: data.lng,
-                speed_kmh: data.speed,
-                harsh_brake: isBraking,
-                pothole_hit: isPothole,
-                speeding: isSpeeding
+                time: data.timestamp, lat: data.lat, lng: data.lng,
+                speed_kmh: data.speed, harsh_brake: isBraking,
+                pothole_hit: isPothole, speeding: isSpeeding
             });
 
             let alertMsg = "";
@@ -277,7 +271,21 @@ onValue(busLocationRef, (snapshot) => {
     etaDisplay.innerText = "Bus Offline";
     etaDisplay.style.color = "#dc3545"; 
   }
+}
+
+// THE GATEKEEPERS
+const liveBusRef = ref(db, 'bus1/location');
+onValue(liveBusRef, (snapshot) => {
+    // If switch is on Live Mode, process hardware data
+    if (!simActive) processFirebaseData(snapshot.val());
 });
+
+const demoBusRef = ref(db, 'bus_demo/location');
+onValue(demoBusRef, (snapshot) => {
+    // If switch is on Demo Mode, process script data
+    if (simActive) processFirebaseData(snapshot.val());
+});
+
 
 // ==========================================
 // 8. NAVIGATION, UI, & NEARBY STOPS
@@ -540,3 +548,34 @@ const stationaryBusIcon = L.divIcon({
 const seriIskandarBus = L.marker([4.365577, 100.9803029], { 
     icon: getGpsArrowIcon('seri-bus-arrow', '#f59e0b') 
 }).addTo(map).on('click', () => openLiveSchedulePanel('seri'));
+
+// --- SETTINGS TOGGLE SWITCH LOGIC ---
+let simActive = true; // Assuming Demo Mode starts checked
+const modeToggle = document.getElementById('mode-toggle');
+
+if (modeToggle) {
+    modeToggle.addEventListener('change', (e) => {
+        simActive = e.target.checked;
+        const modeLabel = document.getElementById('mode-label');
+        const toggleKnob = document.getElementById('toggle-knob');
+        const toggleSlider = document.getElementById('toggle-slider');
+        
+        if (simActive) {
+            modeLabel.innerText = "Demo Mode";
+            modeLabel.style.color = "#3b82f6";
+            toggleSlider.style.backgroundColor = "#3b82f6";
+            toggleKnob.style.transform = "translateX(0)";
+        } else {
+            modeLabel.innerText = "Live Mode";
+            modeLabel.style.color = "#ef4444"; // Red for Live hardware
+            toggleSlider.style.backgroundColor = "#ef4444";
+            toggleKnob.style.transform = "translateX(20px)";
+        }
+        
+        // Destroy the marker when switching so it cleanly respawns at the new data location
+        if (liveBusMarker) {
+            map.removeLayer(liveBusMarker);
+            liveBusMarker = null; 
+        }
+    });
+}
