@@ -26,21 +26,28 @@ html, body {
 
 /* Mobile App Container */
 #app-container {
+  max-width: 450px; /* Locks the maximum width for PC */
   width: 100%;
-  max-width: 450px; /* Forces a phone-like shape on desktop */
-  height: 100%;
+  height: 100vh; /* Locks the height to exactly the window size */
+  margin: 0 auto;
+  background-color: var(--bg-dark);
+  position: relative;
   display: flex;
   flex-direction: column;
-  position: relative;
-  background-color: var(--bg-dark);
+  overflow: hidden; /* Kills the outer jumping scrollbar completely! */
+  box-shadow: 0 0 20px rgba(0,0,0,0.5); /* Nice shadow for PC viewing */
 }
 
 /* Top Header */
 .app-header {
-  padding: 20px 20px 15px;
   display: flex;
   align-items: center;
-  gap: 15px;
+  padding: 20px 15px;
+  background-color: var(--bg-dark);
+  
+  /* Add these two lines to lock it: */
+  width: 100%;
+  flex-shrink: 0; 
 }
 
 .logo-icon {
@@ -113,12 +120,16 @@ html, body {
 /* --- BOTTOM NAVIGATION BAR --- */
 .bottom-nav {
   display: grid !important;
-  grid-template-columns: repeat(5, 1fr) !important; /* Mathematically forces 5 identical columns */
+  /* minmax(0, 1fr) is the magic code that forces columns to stay equal even if text is too long */
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important; 
   width: 100%;
   background: var(--bg-card);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 10px 0 20px 0; /* Adjust bottom padding if needed for mobile safe areas */
-  position: fixed;
+  padding: 10px 0 20px 0;
+  
+  /* THE PC STRETCH FIX: Use absolute instead of fixed. 
+     This locks it to the bottom of the #app-container, NOT your PC monitor */
+  position: absolute; 
   bottom: 0;
   left: 0;
   z-index: 9999;
@@ -131,10 +142,14 @@ html, body {
   justify-content: center;
   text-decoration: none;
   color: var(--text-muted);
-  font-size: 11px;
+  
+  /* THE UNEVEN TEXT FIX: Shrink the font slightly and force it onto one line */
+  font-size: 10px; 
+  white-space: nowrap; 
+  
   gap: 5px;
   transition: 0.2s ease;
-  width: 100%; /* Fills its rigid grid cell perfectly */
+  width: 100%;
   overflow: hidden; 
 }
 
@@ -153,11 +168,11 @@ html, body {
 
 /* --- APP VIEWS & NAVIGATION --- */
 .view {
-  flex-grow: 1;
-  overflow-y: auto; 
-  padding-bottom: 20px;
-  display: flex;             /* ADD THIS */
-  flex-direction: column;    /* ADD THIS */
+  flex: 1; /* Forces the view to fill the empty space between header and bottom nav */
+  width: 100%;
+  overflow-y: auto; /* The magic! Only the middle of the screen scrolls now */
+  overflow-x: hidden;
+  padding-bottom: 90px; /* Prevents the bottom text from getting stuck behind the nav bar */
 }
 
 /* --- Fix Tab Widths & Stop Cards from Cutting Off --- */
