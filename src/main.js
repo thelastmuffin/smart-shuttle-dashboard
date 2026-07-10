@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, onValue, push } from "firebase/database";
 
-
 // --- 1. FIREBASE SETUP ---
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -101,11 +100,10 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
     })
   }).addTo(map);
 
-  // THE FIX: Calculate live ETA when the stop is clicked!
+// THE FIX: Calculate live ETA when the stop is clicked!
   marker.on('click', () => {
-      let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
-      if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
-      if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
+      if (!liveBusMarker) return; // Wait for Firebase to load the bus
+      let currentBusPos = liveBusMarker.getLatLng();
       
       const targetRouteIndex = getNextBusStopIndex(name);
       const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
@@ -121,44 +119,17 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
         </div>
       `).openPopup();
   });
-
-  stopMarkers[name] = marker;
 });
 
-// --- EXHIBITION: 60FPS SMOOTH ROUTING SIMULATOR ---
-let simCoordinates = [];
-let simActive = false;
-
-// Build the route waypoints cleanly (No alternative coordinates)
-const routeWaypoints = [];
-for (let i = 0; i < routeSequence.length; i++) {
-    const stopName = routeSequence[i];
-    routeWaypoints.push(L.latLng(stopCoords[stopName].lat, stopCoords[stopName].lng));
-}
-
-// Default standard routing engine
-const routingControl = L.Routing.control({
-    waypoints: routeWaypoints,
-    routeWhileDragging: false,
-    addWaypoints: false,
-    show: false,
-    createMarker: function() { return null; },
-    lineOptions: { styles: [{color: '#3b82f6', opacity: 0.6, weight: 6}] }
-}).addTo(map);
-
-routingControl.on('routesfound', function(e) {
-    simCoordinates = e.routes[0].coordinates;
-    if (!simActive) {
-        simActive = true;
-        currentTargetIndex = 1; // <--- ADD THIS LINE: Forces it to target An-Nur Mosque
-        startSmoothSimulation();
-    }
-});
+// --- 4. THE GEOFENCING LOGIC ---
+let simBusMarker = null;
+let liveBusMarker = null;
+let currentTargetIndex = 1; // We start at 1, looking for the 2nd stop in the loop
 
 function updateHighlightedStop() {
     Object.entries(stopMarkers).forEach(([name, marker]) => {
         const isNextStop = name === routeSequence[currentTargetIndex];
-        const color = isNextStop ? '#ef4444' : '#3b82f6';
+        const color = isNextStop ? '#ef4444' : '#3b82f6'; // Red for next stop, blue for others
 
         marker.setIcon(L.divIcon({
             html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
@@ -168,137 +139,6 @@ function updateHighlightedStop() {
         }));
     });
 }
-
-
-// --- ACCUMULATED ETA CALCULATOR ---
-function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
-    const campusBusSpeedKmH = 22; 
-    const boardingDelayMinutes = 0.3; 
-
-    let totalDistanceKm = 0;
-    let intermediateStops = 0;
-
-    // 1. Distance to the VERY NEXT immediate stop
-    const nextStopName = routeSequence[currentTargetIndex];
-    const nextStopCoords = stopCoords[nextStopName];
-    totalDistanceKm += calculateDistance(currentLat, currentLng, nextStopCoords.lat, nextStopCoords.lng);
-
-    // 2. Loop through the sequence and accumulate distance & boarding delays
-    let scanIndex = currentTargetIndex;
-    
-    while (scanIndex !== targetStopIndex) {
-        let currentLegName = routeSequence[scanIndex];
-        let nextLegIndex = (scanIndex + 1) % routeSequence.length;
-        let nextLegName = routeSequence[nextLegIndex];
-
-        totalDistanceKm += calculateDistance(
-            stopCoords[currentLegName].lat, stopCoords[currentLegName].lng,
-            stopCoords[nextLegName].lat, stopCoords[nextLegName].lng
-        );
-        
-        intermediateStops++; 
-        scanIndex = nextLegIndex;
-    }
-
-    // 3. Final Math: Return the EXACT decimal so we can calculate live seconds
-    const drivingTimeMins = (totalDistanceKm / campusBusSpeedKmH) * 60;
-    return drivingTimeMins + (intermediateStops * boardingDelayMinutes);
-}
-
-function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
-    if (!targetStopName || !Number.isFinite(distanceKm)) {
-        etaDisplay.innerText = "Waiting for GPS signal...";
-        etaDisplay.style.color = "#94a3b8";
-        return;
-    }
-
-    const displayName = targetStopName.replace(" 2", ""); // Hide ghost stop name
-
-    // INCREASED to 0.08 (80 meters) so it doesn't accidentally skip stops!
-    if (isArriving || distanceKm < 0.08) { 
-        etaDisplay.innerText = `Arriving at ${displayName} Now!`;
-        etaDisplay.style.color = "#10b981";
-    } else {
-        // THE FIX: Strictly prioritize the moving simulation over stale Firebase data
-        let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
-        if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
-        if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
-
-        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
-        const m = Math.floor(rawMins);
-        const s = Math.floor((rawMins - m) * 60);
-        
-        etaDisplay.innerText = `Next Stop: ${displayName} in ${m}m ${s}s`;
-        etaDisplay.style.color = "#94a3b8";
-    }
-}
-
-function startSmoothSimulation() {
-    let currentIndex = 0;
-    let isPaused = false;
-    
-    if (!simBusMarker) {
-        simBusMarker = L.marker([simCoordinates[0].lat, simCoordinates[0].lng], {
-            icon: getGpsArrowIcon('sim-bus-arrow', '#3b82f6') // <--- FIXED THIS
-        }).addTo(map)
-            .on('click', () => openLiveSchedulePanel('campus'));
-    }
-
-    setInterval(() => {
-        if (!simActive) return; // Freeze the simulation if Live Mode is toggled on
-        
-        if (isPaused || currentIndex >= simCoordinates.length - 1) {
-            if (currentIndex >= simCoordinates.length - 1) currentIndex = 0; 
-            return;
-        }
-
-        const currentCoord = simCoordinates[currentIndex];
-        const nextCoord = simCoordinates[currentIndex + 1];
-
-        // 1. Rotation logic (with jitter protection)
-        const pointDist = calculateDistance(currentCoord.lat, currentCoord.lng, nextCoord.lat, nextCoord.lng);
-        if (pointDist > 0.00005) { 
-            const dy = nextCoord.lat - currentCoord.lat;
-            const dx = nextCoord.lng - currentCoord.lng;
-            const angle = Math.atan2(dx, dy) * (180 / Math.PI); 
-            const arrowEl = document.getElementById('sim-bus-arrow');
-            if (arrowEl) arrowEl.style.transform = `rotate(${angle}deg)`;
-        }
-
-        simBusMarker.setLatLng([nextCoord.lat, nextCoord.lng]);
-
-        // 2. Exhibition ETA & Stop Logic (Safe Check)
-        const targetStopName = routeSequence[currentTargetIndex];
-        const targetCoords = stopCoords[targetStopName];
-        
-        if (targetCoords) {
-            const distToStop = calculateDistance(nextCoord.lat, nextCoord.lng, targetCoords.lat, targetCoords.lng);
-
-            // Decreased to 0.03 (30 meters) so the bus gets visually closer to the pin!
-            if (distToStop < 0.03) {
-                isPaused = true;
-                updateEtaDisplay(targetStopName, distToStop, true);
-
-                // Increased from 3000 to 7000 (7 seconds) so it waits longer at the station
-                setTimeout(() => {
-                    // Safely increment index
-                    currentTargetIndex = (currentTargetIndex + 1) % routeSequence.length;
-                    updateHighlightedStop();
-                    isPaused = false;
-                }, 7000);
-            } else {
-                updateEtaDisplay(targetStopName, distToStop, false);
-            }
-        }
-        currentIndex++;
-        updateHighlightedStop();
-        refreshNearbyStops();    }, 1500); // 1500ms speed for exhibition
-}
-
-// --- 4. THE GEOFENCING LOGIC ---
-let simBusMarker = null;
-let liveBusMarker = null;
-let currentTargetIndex = 1; // We start at 1, looking for the 2nd stop in the loop
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; 
@@ -313,23 +153,72 @@ let lastLoggedTimestamp = "";
 
 const busLocationRef = ref(db, 'bus1/location');
 
+// --- FIREBASE LIVE LISTENER ---
+const busLocationRef = ref(db, 'bus1/location');
+let lastLoggedTimestamp = "";
+let currentTargetIndex = 1; // Start looking for the 2nd stop
+
+// --- ACCUMULATED ETA CALCULATOR ---
+function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
+    const campusBusSpeedKmH = 22; 
+    const boardingDelayMinutes = 0.3; 
+    let totalDistanceKm = 0;
+    let intermediateStops = 0;
+
+    const nextStopName = routeSequence[currentTargetIndex];
+    const nextStopCoords = stopCoords[nextStopName];
+    totalDistanceKm += calculateDistance(currentLat, currentLng, nextStopCoords.lat, nextStopCoords.lng);
+
+    let scanIndex = currentTargetIndex;
+    while (scanIndex !== targetStopIndex) {
+        let currentLegName = routeSequence[scanIndex];
+        let nextLegIndex = (scanIndex + 1) % routeSequence.length;
+        let nextLegName = routeSequence[nextLegIndex];
+        totalDistanceKm += calculateDistance(
+            stopCoords[currentLegName].lat, stopCoords[currentLegName].lng,
+            stopCoords[nextLegName].lat, stopCoords[nextLegName].lng
+        );
+        intermediateStops++; 
+        scanIndex = nextLegIndex;
+    }
+    const drivingTimeMins = (totalDistanceKm / campusBusSpeedKmH) * 60;
+    return drivingTimeMins + (intermediateStops * boardingDelayMinutes);
+}
+
+function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
+    if (!targetStopName || !Number.isFinite(distanceKm)) {
+        etaDisplay.innerText = "Waiting for GPS signal...";
+        etaDisplay.style.color = "#94a3b8";
+        return;
+    }
+    const displayName = targetStopName.replace(" 2", ""); 
+    if (isArriving || distanceKm < 0.08) { 
+        etaDisplay.innerText = `Arriving at ${displayName} Now!`;
+        etaDisplay.style.color = "#10b981";
+    } else {
+        if (!liveBusMarker) return;
+        let currentBusPos = liveBusMarker.getLatLng();
+        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
+        const m = Math.floor(rawMins);
+        const s = Math.floor((rawMins - m) * 60);
+        etaDisplay.innerText = `Next Stop: ${displayName} in ${m}m ${s}s`;
+        etaDisplay.style.color = "#94a3b8";
+    }
+}
+
 onValue(busLocationRef, (snapshot) => {
   const data = snapshot.val();
   
   if (data && data.lat && data.lng) {
     
     // --- 1. HISTORICAL DATA LOGGER ---
-    // If the data has alerts, and we haven't already logged this exact timestamp...
     if (data.alerts && data.timestamp !== lastLoggedTimestamp) {
-        
         const isBraking = data.alerts.harsh_brake === true;
         const isPothole = data.alerts.pothole === true;
         const isSpeeding = data.alerts.overspeed === true;
 
         if (isBraking || isPothole || isSpeeding) {
-            lastLoggedTimestamp = data.timestamp; // Remember this event
-            
-            // Push a permanent record to the Database
+            lastLoggedTimestamp = data.timestamp; 
             const logsRef = ref(db, 'bus1/event_logs');
             push(logsRef, {
                 time: data.timestamp,
@@ -341,7 +230,6 @@ onValue(busLocationRef, (snapshot) => {
                 speeding: isSpeeding
             });
 
-            // Pop an alert on the UI for the judges!
             let alertMsg = "";
             if (isBraking) alertMsg += "🚨 HARSH BRAKING DETECTED!\n";
             if (isPothole) alertMsg += "⚠️ POTHOLE DETECTED!\n";
@@ -351,42 +239,33 @@ onValue(busLocationRef, (snapshot) => {
 
     // --- 2. Move the Live Bus Marker ---
     if (liveBusMarker === null) {
-        // I made the Live Bus Green so you can instantly tell them apart!
         liveBusMarker = L.marker([data.lat, data.lng], { icon: getGpsArrowIcon('live-bus-arrow', '#10b981') })
-            .on('click', () => openLiveSchedulePanel('campus')); 
-        
-        // ONLY add it to the map initially if we are NOT in demo mode
-        if (!simActive) liveBusMarker.addTo(map);
+            .on('click', () => openLiveSchedulePanel('campus'))
+            .addTo(map); 
     } else {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
     
     // --- 3. THE GEOFENCE SNAP (Self-Healing Logic) ---
-    // Scan all stops to see if the bus is physically at one right now
-    if (!simActive) { // <--- ADD THIS IF STATEMENT
-        for (let i = 0; i < routeSequence.length; i++) {
-            const checkCoords = stopCoords[routeSequence[i]];
-            const checkDist = calculateDistance(data.lat, data.lng, checkCoords.lat, checkCoords.lng);
-            
-            // If the bus is within 50 meters of stop 'i', it has arrived. 
-            // Snap the target index to the NEXT stop in the sequence.
-            if (checkDist < 0.05) { 
-                currentTargetIndex = (i + 1) % routeSequence.length; 
-                break; // We found the location, stop looping.
-            }
+    for (let i = 0; i < routeSequence.length; i++) {
+        const checkCoords = stopCoords[routeSequence[i]];
+        const checkDist = calculateDistance(data.lat, data.lng, checkCoords.lat, checkCoords.lng);
+        
+        if (checkDist < 0.05) { 
+            currentTargetIndex = (i + 1) % routeSequence.length; 
+            updateHighlightedStop(); 
+            break; 
         }
     }
 
-// --- 4. Identify Target Coordinates & Distance ---
+    // --- 4. Identify Target Coordinates & Distance ---
     const targetStopName = routeSequence[currentTargetIndex];
     const targetCoords = stopCoords[targetStopName];
     const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
 
-    // --- 5. Calculate ETA & Update UI (ONLY IF IN LIVE MODE) ---
-    if (!simActive) { // <--- Wrap these updates inside this IF statement!
-        updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
-        refreshNearbyStops();
-    }
+    // --- 5. Calculate ETA & Update UI ---
+    updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
+    refreshNearbyStops();
 
   } else {
     etaDisplay.innerText = "Bus Offline";
@@ -457,10 +336,9 @@ function refreshNearbyStops() {
     const top3Stops = allStops.slice(0, 3);
     const now = new Date();
 
-    // THE FIX: Strictly prioritize the moving simulation over stale Firebase data
-    let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
-    if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
-    if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
+    // THE NEW WAY:
+    if (!liveBusMarker) return; 
+    let currentBusPos = liveBusMarker.getLatLng();
 
     // 4. Inject into HTML with LIVE SECONDS
     nearbyList.innerHTML = top3Stops.map((stop) => {
@@ -547,34 +425,6 @@ recenterBtn.onclick = () => map.flyTo([currentLocation.lat, currentLocation.lng]
 const mapWrapper = document.querySelector('.map-wrapper');
 if (mapWrapper) mapWrapper.appendChild(recenterBtn);
 
-// 4. Toggle Switch Logic (Linked to your Settings Page)
-const settingsToggle = document.getElementById('toggle-slider');
-
-settingsToggle.addEventListener('click', () => {
-    // Flip the mode (if it was false, make it true, and vice versa)
-    simActive = !simActive; 
-    
-    if (simActive) {
-        // 🟢 DEMO MODE IS ON
-        settingsToggle.classList.add('active'); // Slides the knob to the right and turns it blue
-        
-        // Swap markers
-        if (simBusMarker) simBusMarker.addTo(map);
-        if (liveBusMarker) liveBusMarker.remove();
-    } else {
-        // 🔴 LIVE MODE IS ON
-        settingsToggle.classList.remove('active'); // Slides the knob left and turns it gray
-        
-        // Swap markers
-        if (simBusMarker) simBusMarker.remove();
-        if (liveBusMarker) liveBusMarker.addTo(map);
-    }
-    
-    // Force immediate UI updates
-    refreshNearbyStops();
-    if (sidePanel.classList.contains('open')) updatePanelData();
-});
-
 // --- LIVE ROUTE SIDE PANEL (STATEFUL FOR MULTIPLE BUSES) ---
 const panelStyle = document.createElement('style');
 panelStyle.innerHTML = `
@@ -634,9 +484,8 @@ document.getElementById('close-panel-btn').addEventListener('click', () => sideP
 map.on('click', () => sidePanel.classList.remove('open'));
 
 function updatePanelData() {
-    let currentBusPos = { lat: stopCoords["PMMD"].lat, lng: stopCoords["PMMD"].lng };
-    if (liveBusMarker && !simActive) currentBusPos = liveBusMarker.getLatLng();
-    if (simBusMarker && simActive) currentBusPos = simBusMarker.getLatLng();
+    if (!liveBusMarker) return; 
+    let currentBusPos = liveBusMarker.getLatLng();
 
     const isCampus = currentPanelBusType === 'campus';
     const now = new Date();

@@ -10,7 +10,12 @@
 		{
 			"name": "transmitter2",
 			"path": "../../../Documents/PlatformIO/Projects/transmitter2"
+		},
+		{
+			"path": "../../../../smart-shuttle-engine"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
 }
