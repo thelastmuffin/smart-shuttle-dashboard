@@ -330,13 +330,6 @@ onValue(demoBusRef, (snapshot) => {
     if (simActive) processFirebaseData(snapshot.val());
 });
 
-
-// ==========================================
-// 8. NAVIGATION, UI, & NEARBY STOPS
-// ==========================================
-const navItems = document.querySelectorAll('.nav-item');
-const views = document.querySelectorAll('.view');
-
 // ==========================================
 // 8. NAVIGATION, UI, & NEARBY STOPS
 // ==========================================
