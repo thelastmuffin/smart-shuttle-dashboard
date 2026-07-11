@@ -36,16 +36,29 @@ html, body {
 
 /* 3. Protect & Restore the Header */
 .app-header {
-  /* Restores the layout so the logo and clock align properly */
   display: flex;
   align-items: center;
   padding: 20px 15px;
   gap: 15px;
+  
+  /* THE NEW BACKGROUND */
   background-color: var(--bg-dark);
-  /* The layout locks */
+  /* The linear-gradient acts as a dark tint so your white text stays readable! */
+  background-image: linear-gradient(rgba(15, 23, 42, 0.65), rgba(15, 23, 42, 0.85)), url('/header-bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  
   width: 100%;
   flex-shrink: 0;
   box-sizing: border-box; 
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Adds a nice clean edge */
+}
+
+/* SUPERSIZE THE BUS EMOJI */
+.logo-icon {
+  font-size: 38px;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6)); /* Makes it pop off the background */
 }
 
 /* 4. The Views (Allows scrolling) */

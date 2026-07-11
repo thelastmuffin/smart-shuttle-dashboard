@@ -346,7 +346,13 @@ navItems.forEach((item, index) => {
         views.forEach(view => view.style.display = 'none');
         views[index].style.display = 'flex'; 
         
-        if (index === 0) focusUtpMap();
+        // THE LEAFLET BUG FIX:
+        if (index === 0) {
+            // Give the browser 50 milliseconds to render the tab, THEN tell Leaflet to wake up
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 50);
+        }
     });
 });
 
