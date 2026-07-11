@@ -8,19 +8,23 @@
   --accent-green: #10b981;
 }
 
-/* 1. Kill all outer browser scrolling completely */
+/* 1. Base & Fonts (Restored) */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden; 
+  overflow: hidden;
+  /* Restores your original font family and text colors! */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
 }
 
 /* 2. Lock the Main Container */
 #app-container {
   max-width: 450px;
   width: 100%;
-  height: 100%; /* Use 100% instead of 100vh for better mobile compatibility */
+  height: 100%;
   margin: 0 auto;
   background-color: var(--bg-dark);
   position: relative;
@@ -30,42 +34,53 @@ html, body {
   box-shadow: 0 0 20px rgba(0,0,0,0.5);
 }
 
-/* 3. Protect the Header */
+/* 3. Protect & Restore the Header */
 .app-header {
+  /* Restores the layout so the logo and clock align properly */
+  display: flex;
+  align-items: center;
+  padding: 20px 15px;
+  gap: 15px;
+  background-color: var(--bg-dark);
+  /* The layout locks */
   width: 100%;
   flex-shrink: 0;
-  box-sizing: border-box; /* Forces padding to stay INSIDE the 100% width */
+  box-sizing: border-box; 
 }
 
-/* 4. The Views (This fixes the scrolling and the width explosion) */
+/* 4. The Views (Allows scrolling) */
 .view {
   flex: 1;
   width: 100%;
-  min-height: 0; /* THE SCROLL FIX: Forces Flexbox to allow scrolling */
+  min-height: 0; 
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: 90px;
-  box-sizing: border-box; /* THE WIDTH FIX: Stops elements from stretching the screen */
+  box-sizing: border-box; 
 }
 
-/* 5. Fix the Map Wrapper specifically */
+/* 5. Map Wrapper & Map (Restores the Map!) */
 .map-wrapper {
-  width: auto; /* Replaces width: 100% to stop it from breaking the margins */
+  width: auto; 
   margin: 0 15px; 
   position: relative;
   border-radius: 24px;
   overflow: hidden;
-}
-
-/* Hides the annoying floating Leaflet watermark */
-.leaflet-control-attribution {
-  display: none !important;
+  /* THE CRITICAL FIX: The map MUST have a height to exist! */
+  height: 55vh; 
+  min-height: 350px;
+  z-index: 1;
 }
 
 #map {
   width: 100%;
   height: 100%;
   z-index: 1;
+}
+
+/* Hides the annoying floating Leaflet watermark */
+.leaflet-control-attribution {
+  display: none !important;
 }
 
 /* Hide default Leaflet zoom controls for a cleaner UI */
@@ -233,12 +248,6 @@ html, body {
   font-size: 16px;
   white-space: nowrap;
 }
-
-/* --- SETTINGS TOGGLE --- */
-.toggle { width: 40px; height: 22px; background: rgba(255,255,255,0.2); border-radius: 20px; position: relative; margin-left: auto; }
-.toggle.active { background: var(--accent-blue); }
-.toggle::after { content: ''; position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: 0.3s; }
-.toggle.active::after { left: 20px; }
 
 .leaflet-marker-icon {
     z-index: 9999 !important;
