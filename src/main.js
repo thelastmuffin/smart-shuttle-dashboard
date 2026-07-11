@@ -337,6 +337,12 @@ onValue(demoBusRef, (snapshot) => {
 const navItems = document.querySelectorAll('.nav-item');
 const views = document.querySelectorAll('.view');
 
+// ==========================================
+// 8. NAVIGATION, UI, & NEARBY STOPS
+// ==========================================
+const navItems = document.querySelectorAll('.nav-item');
+const views = document.querySelectorAll('.view');
+
 navItems.forEach((item, index) => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
@@ -344,7 +350,10 @@ navItems.forEach((item, index) => {
         item.classList.add('active');
         
         views.forEach(view => view.style.display = 'none');
-        views[index].style.display = 'flex'; 
+        
+        // THE CRITICAL FIX: This must be 'block', NOT 'flex'!
+        // This restores the vertical layout and stops the screen width from exploding.
+        views[index].style.display = 'block'; 
         
         // THE LEAFLET BUG FIX:
         if (index === 0) {
