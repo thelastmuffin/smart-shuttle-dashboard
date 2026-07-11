@@ -367,3 +367,108 @@ html, body {
   /* This creates the smooth sliding animation */
   transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); 
 }
+
+/* --- ACCORDION SCHEDULE UI --- */
+.schedule-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.schedule-block {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+/* Hide default arrow */
+.schedule-block summary::-webkit-details-marker,
+.trip-block summary::-webkit-details-marker {
+  display: none; 
+}
+
+.schedule-block summary {
+  padding: 16px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+}
+
+.schedule-block summary::after {
+  content: '▼';
+  font-size: 12px;
+  color: var(--accent-blue);
+  transition: transform 0.3s ease;
+}
+
+.schedule-block[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+/* Inner Trip Dropdowns */
+.trip-list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.trip-block {
+  background: var(--bg-card);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.trip-block summary {
+  padding: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-main);
+}
+
+.trip-block summary::after {
+  content: '+';
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--text-muted);
+}
+.trip-block[open] > summary::after {
+  content: '−';
+}
+
+/* The actual times */
+.stop-times {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stop-time-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+}
+
+.stop-time-row:last-child {
+  border-bottom: none;
+}
+
+.time-val {
+  color: var(--accent-blue);
+  font-weight: bold;
+  font-family: monospace;
+  font-size: 14px;
+}
