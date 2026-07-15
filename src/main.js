@@ -890,46 +890,83 @@ document.addEventListener('DOMContentLoaded', () => {
 const driverModalOverlay = document.getElementById('driver-modal-overlay');
 const closeDriverModalBtn = document.getElementById('close-driver-modal');
 
-// Attach to the Window object so the HTML onclick="openDriverModal(...)" can find it!
+// 1. Open the Modal & Reset Data
 window.openDriverModal = function(name, rating, route) {
-    // 1. Inject the data into the modal
     document.getElementById('modal-driver-name').innerText = name;
     document.getElementById('modal-driver-rating').innerText = rating;
     document.getElementById('modal-driver-route').innerText = "Assigned Route: " + route;
 
-    // 2. Reset the report buttons (in case they opened the modal previously)
-    document.getElementById('report-success').style.display = 'none';
-    document.querySelectorAll('.report-btn').forEach(btn => {
-        btn.classList.remove('selected');
-        btn.style.display = 'block'; // Ensure buttons are visible
+    // Dynamically generate the email (e.g. "ahmad.j.bus@utp.edu.my")
+    const emailSafeName = name.toLowerCase().replace(/[^a-z]/g, '.').replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
+    document.getElementById('modal-driver-email').innerText = emailSafeName + ".bus@utp.edu.my";
+
+    // Hide all expandable dropdown sections
+    ['contact-section', 'rating-section', 'report-section'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
     });
 
-    // 3. Open the Modal!
+    // Reset Rating UI
+    setRating(0);
+    document.getElementById('rating-success').style.display = 'none';
+    document.getElementById('confirm-rating-btn').style.display = 'block';
+    
+    // Reset Report UI
+    document.getElementById('report-reason').value = "";
+    document.getElementById('report-details').value = "";
+    document.getElementById('report-success').style.display = 'none';
+    document.getElementById('submit-report-btn').style.display = 'block';
+
     driverModalOverlay.classList.add('active');
 };
 
-// Close Modal Logic
-if (closeDriverModalBtn && driverModalOverlay) {
-    closeDriverModalBtn.addEventListener('click', () => {
-        driverModalOverlay.classList.remove('active');
-    });
+// 2. Toggle the Dropdown Sections
+window.toggleModalSection = function(sectionId) {
+    const section = document.getElementById(sectionId);
+    
+    // Auto-close others if desired, or let them stack. We will let them toggle individually:
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+    } else {
+        section.style.display = 'none';
+    }
+};
 
-    // Allow clicking the dark background to close it
-    driverModalOverlay.addEventListener('click', (e) => {
-        if (e.target === driverModalOverlay) {
-            driverModalOverlay.classList.remove('active');
+// 3. Star Rating Hover/Click Logic
+window.setRating = function(stars) {
+    const starElements = document.querySelectorAll('.star');
+    starElements.forEach((star, index) => {
+        if (index < stars) {
+            star.classList.add('active');
+        } else {
+            star.classList.remove('active');
         }
     });
-}
-
-// Logic for clicking a Report Button
-window.submitReport = function(buttonElement) {
-    // Visually show the button was clicked
-    buttonElement.classList.add('selected');
-
-    // Simulate sending data to the server, then show the success message
-    setTimeout(() => {
-        document.querySelectorAll('.report-btn').forEach(btn => btn.style.display = 'none');
-        document.getElementById('report-success').style.display = 'block';
-    }, 400);
+    
+    const confirmBtn = document.getElementById('confirm-rating-btn');
+    if (stars > 0) confirmBtn.disabled = false;
+    else confirmBtn.disabled = true;
 };
+
+// 4. Submission Handlers
+window.submitRating = function() {
+    document.getElementById('confirm-rating-btn').style.display = 'none';
+    document.getElementById('rating-success').style.display = 'block';
+};
+
+window.submitIssueReport = function() {
+    const reason = document.getElementById('report-reason').value;
+    if (!reason) {
+        alert("Please select a reason for the report first.");
+        return;
+    }
+    document.getElementById('submit-report-btn').style.display = 'none';
+    document.getElementById('report-success').style.display = 'block';
+};
+
+// 5. Close Modal Events
+if (closeDriverModalBtn && driverModalOverlay) {
+    closeDriverModalBtn.addEventListener('click', () => driverModalOverlay.classList.remove('active'));
+    driverModalOverlay.addEventListener('click', (e) => {
+        if (e.target === driverModalOverlay) driverModalOverlay.classList.remove('active');
+    });
+}

@@ -349,6 +349,10 @@
 
         </div> 
       </div> 
+
+      <!-- ========================================== -->
+      <!-- DRIVER PROFILE MODAL (EXPANDABLE) -->
+      <!-- ========================================== -->
       <div id="driver-modal-overlay" class="modal-overlay">
         <div id="driver-modal" class="bottom-sheet">
           <div class="modal-handle"></div>
@@ -362,41 +366,73 @@
             </div>
           </div>
 
+          <!-- TOP ACTION BUTTONS -->
           <div class="driver-actions">
-            <button class="action-btn"><span class="icon">📞</span> Call Driver</button>
-            <button class="action-btn"><span class="icon">✉️</span> Email Support</button>
+            <button class="action-btn" onclick="toggleModalSection('contact-section')"><span class="icon">📞</span> Contact Details</button>
+            <button class="action-btn" onclick="toggleModalSection('rating-section')"><span class="icon">⭐</span> Rate Driver</button>
           </div>
 
-          <div class="report-section">
-            <h3>Report an Issue</h3>
-            <p>Select a reason below to notify campus security anonymously.</p>
-            <div class="report-grid">
-              <button class="report-btn" onclick="submitReport(this)">🏎️ Speeding</button>
-              <button class="report-btn" onclick="submitReport(this)">⚠️ Reckless Driving</button>
-              <button class="report-btn" onclick="submitReport(this)">🚬 Smoking</button>
-              <button class="report-btn" onclick="submitReport(this)">🗣️ Rude Behavior</button>
-              <button class="report-btn" onclick="submitReport(this)">📱 Texting & Driving</button>
-              <button class="report-btn" onclick="submitReport(this)">🛑 Missed Stop</button>
+          <!-- 1. HIDDEN CONTACT SECTION -->
+          <div id="contact-section" class="modal-expandable" style="display:none;">
+            <div class="contact-box">
+              <p><strong>Phone:</strong> <span id="modal-driver-phone">012-345 6789</span></p>
+              <p><strong>Email:</strong> <span id="modal-driver-email">driver@utp.edu.my</span></p>
             </div>
-            
-            <div id="report-success" class="success-message" style="display:none;">
-              ✅ Report submitted anonymously. Thank you for keeping our campus safe.
+          </div>
+
+          <!-- 2. HIDDEN RATING SECTION -->
+          <div id="rating-section" class="modal-expandable" style="display:none;">
+            <div class="rating-box">
+              <p>How was your ride?</p>
+              <div class="stars-container">
+                <span class="star" onclick="setRating(1)">★</span>
+                <span class="star" onclick="setRating(2)">★</span>
+                <span class="star" onclick="setRating(3)">★</span>
+                <span class="star" onclick="setRating(4)">★</span>
+                <span class="star" onclick="setRating(5)">★</span>
+              </div>
+              <button id="confirm-rating-btn" class="submit-action-btn" onclick="submitRating()" disabled>Confirm Rating</button>
+              <div id="rating-success" class="success-message" style="display:none;">
+                ⭐ Thank you for your rating!
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. REPORT SECTION -->
+          <div class="report-wrapper">
+            <button class="action-btn danger-btn" onclick="toggleModalSection('report-section')">
+              <span class="icon">🚨</span> Report an Issue
+            </button>
+
+            <!-- HIDDEN REPORT FORM -->
+            <div id="report-section" class="modal-expandable" style="display:none;">
+              <div class="report-box">
+                <p style="margin-top:0; font-size:13px; color:var(--text-muted);">Select a reason below to notify campus security.</p>
+                
+                <select id="report-reason" class="modal-input">
+                  <option value="" disabled selected>Select an issue...</option>
+                  <option value="Speeding">🏎️ Speeding</option>
+                  <option value="Reckless Driving">⚠️ Reckless Driving</option>
+                  <option value="Smoking">🚬 Smoking</option>
+                  <option value="Rude Behavior">🗣️ Rude Behavior</option>
+                  <option value="Texting">📱 Texting & Driving</option>
+                  <option value="Missed Stop">🛑 Missed Stop</option>
+                </select>
+                
+                <textarea id="report-details" class="modal-input textarea" rows="3" placeholder="Provide details (Optional)..."></textarea>
+                
+                <button id="submit-report-btn" class="submit-action-btn danger" onclick="submitIssueReport()">Submit Report</button>
+                <div id="report-success" class="success-message" style="display:none;">
+                  ✅ Report submitted anonymously. Thank you.
+                </div>
+              </div>
             </div>
           </div>
           
-          <button id="close-driver-modal" class="close-modal-btn">Close</button>
+          <button id="close-driver-modal" class="close-modal-btn" style="margin-top: 20px;">Close</button>
         </div>
       </div>
-
-      <nav class="bottom-nav">
-        <a href="#" class="nav-item active"><span class="icon">🗺️</span><span>Map</span></a>
-        <a href="#" class="nav-item"><span class="icon">🛤️</span><span>Routes</span></a>
-        <a href="#" class="nav-item"><span class="icon">🚌</span><span>Buses</span></a>
-        <a href="#" class="nav-item"><span class="icon">📅</span><span>Schedule</span></a>
-        <a href="#" class="nav-item"><span class="icon">⚙️</span><span>Settings</span></a>
-      </nav>
-    </div>
-
+      
     <script type="module" src="/src/main.js"></script>
     
   </body>
