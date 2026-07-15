@@ -26,6 +26,7 @@ let lastLoggedTimestamp = "";
 let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; 
 let panelUpdateInterval = null;
 let currentPanelBusType = 'campus';
+let mapTrackingMode = 'campus'; // Tracks which button is clicked!
 
 // ==========================================
 // 3. MAP & ICON INITIALIZATION
@@ -161,22 +162,33 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray
     return drivingTimeMins + (intermediateStops * boardingDelayMinutes);
 }
 
-function updateEtaDisplay(targetStopName, distanceKm, isArriving = false) {
+function updateEtaDisplay(targetStopName, distanceKm, isArriving = false, busType = 'campus') {
+    // SECURITY: Ignore updates if they don't match the active tab!
+    if (busType !== mapTrackingMode) return;
+
     if (!targetStopName || !Number.isFinite(distanceKm)) {
         etaDisplay.innerText = "Waiting for GPS signal...";
         etaDisplay.style.color = "#94a3b8";
         return;
     }
+    
     const displayName = targetStopName.replace(" 2", ""); 
+    
     if (isArriving || distanceKm < 0.08) { 
         etaDisplay.innerText = `Arriving at ${displayName} Now!`;
-        etaDisplay.style.color = "#10b981";
+        etaDisplay.style.color = (busType === 'campus') ? "#10b981" : "#f59e0b"; // Green for Campus, Amber for Seri
     } else {
-        if (!liveBusMarker) return;
-        let currentBusPos = liveBusMarker.getLatLng();
-        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, currentTargetIndex);
+        if (busType === 'campus' && !liveBusMarker) return;
+        if (busType === 'seri' && !seriBusMarker) return;
+
+        let currentBusPos = (busType === 'campus') ? liveBusMarker.getLatLng() : seriBusMarker.getLatLng();
+        const seqArray = (busType === 'campus') ? routeSequence : seriRouteSequence;
+        const targetIndex = (busType === 'campus') ? currentTargetIndex : seriTargetIndex;
+
+        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetIndex, seqArray);
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
+        
         etaDisplay.innerText = `Next Stop: ${displayName} in ${m}m ${s}s`;
         etaDisplay.style.color = "#94a3b8";
     }
@@ -363,7 +375,7 @@ function processFirebaseData(data) {
     const targetCoords = stopCoords[targetStopName];
     const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
 
-    updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
+    updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'campus'); // <--- ADDED 'campus'
     refreshNearbyStops();
     
     // Dynamically update the Routes Tab UI!
@@ -431,6 +443,15 @@ function processSeriFirebaseData(data) {
               break;
           }
       }
+
+      const targetStopName = seriRouteSequence[seriTargetIndex];
+      const targetCoords = stopCoords[targetStopName];
+      if (targetCoords) {
+          const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
+          updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'seri');
+      }
+      refreshNearbyStops();
+
       updateLiveRoutesPanel(); 
   }
 }
@@ -487,6 +508,11 @@ function refreshNearbyStops() {
     Object.entries(stopCoords).forEach(([name, coords]) => {
         if (name === "Chancellor Complex 2") return; 
 
+        // MAGIC FILTER: Only show stations for the selected route!
+        const isSeriStop = !routeSequence.includes(name);
+        if (mapTrackingMode === 'campus' && isSeriStop) return;
+        if (mapTrackingMode === 'seri' && !seriRouteSequence.includes(name)) return;
+
         const distKm = calculateDistance(currentLocation.lat, currentLocation.lng, coords.lat, coords.lng);
         allStops.push({ 
             name: name, 
@@ -499,13 +525,17 @@ function refreshNearbyStops() {
     const top3Stops = allStops.slice(0, 3);
     const now = new Date();
 
-    if (!liveBusMarker) return; 
-    let currentBusPos = liveBusMarker.getLatLng();
+    const activeMarker = mapTrackingMode === 'campus' ? liveBusMarker : seriBusMarker;
+    const seqArray = mapTrackingMode === 'campus' ? routeSequence : seriRouteSequence;
+
+    if (!activeMarker) {
+        nearbyList.innerHTML = `<div style="text-align:center; padding: 15px; color:#94a3b8;">Waiting for GPS signal...</div>`;
+        return;
+    }
+
+    let currentBusPos = activeMarker.getLatLng();
 
     nearbyList.innerHTML = top3Stops.map((stop) => {
-        const isSeriStop = !routeSequence.includes(stop.name);
-        const seqArray = isSeriStop ? seriRouteSequence : routeSequence;
-        
         const targetRouteIndex = getNextBusStopIndex(stop.name, seqArray);
         const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex, seqArray);
         const m = Math.floor(rawMins);
@@ -514,6 +544,9 @@ function refreshNearbyStops() {
         const etaTime = new Date(now.getTime() + rawMins * 60000);
         const etaLabel = etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const displayName = stop.name.replace(" 2", "");
+        
+        // Color codes the text Blue for Campus, Amber for Seri Iskandar
+        const timerColor = mapTrackingMode === 'campus' ? '#3b82f6' : '#f59e0b';
 
         return `
             <div class="ui-card nearby-stop-card">
@@ -523,7 +556,7 @@ function refreshNearbyStops() {
                 <p>${stop.distMeters} meters from you</p>
               </div>
               <div class="nearby-stop-time">
-                <div style="font-weight: bold;">Bus in: ${m}m ${s}s</div>
+                <div style="font-weight: bold; color: ${timerColor};">Bus in: ${m}m ${s}s</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Arrives ${etaLabel}</div>
               </div>
             </div>
@@ -709,6 +742,51 @@ function openLiveSchedulePanel(busType) {
 const seriIskandarBus = L.marker([4.358500, 100.984000], { 
     icon: staticYellowBusIcon
 }).addTo(map).on('click', () => openLiveSchedulePanel('seri'));
+
+// ==========================================
+// MAP ROUTE SELECTOR LOGIC
+// ==========================================
+const btnTrackCampus = document.getElementById('btn-track-campus');
+const btnTrackSeri = document.getElementById('btn-track-seri');
+
+function refreshMapTrackingUI() {
+    if (mapTrackingMode === 'campus') {
+        if (liveBusMarker) {
+            const targetStopName = routeSequence[currentTargetIndex];
+            const distanceKm = calculateDistance(liveBusMarker.getLatLng().lat, liveBusMarker.getLatLng().lng, stopCoords[targetStopName].lat, stopCoords[targetStopName].lng);
+            updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'campus');
+        } else {
+            etaDisplay.innerText = "U1 Campus Bus Offline";
+            etaDisplay.style.color = "#dc3545";
+        }
+    } else {
+        if (seriBusMarker) {
+            const targetStopName = seriRouteSequence[seriTargetIndex];
+            const distanceKm = calculateDistance(seriBusMarker.getLatLng().lat, seriBusMarker.getLatLng().lng, stopCoords[targetStopName].lat, stopCoords[targetStopName].lng);
+            updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'seri');
+        } else {
+            etaDisplay.innerText = "U2 Seri Iskandar Bus Offline";
+            etaDisplay.style.color = "#dc3545";
+        }
+    }
+    refreshNearbyStops(); // Forces nearest stations to update!
+}
+
+if (btnTrackCampus && btnTrackSeri) {
+    btnTrackCampus.addEventListener('click', () => {
+        mapTrackingMode = 'campus';
+        btnTrackCampus.classList.add('active');
+        btnTrackSeri.classList.remove('active');
+        refreshMapTrackingUI();
+    });
+
+    btnTrackSeri.addEventListener('click', () => {
+        mapTrackingMode = 'seri';
+        btnTrackSeri.classList.add('active');
+        btnTrackCampus.classList.remove('active');
+        refreshMapTrackingUI();
+    });
+}
 
 // --- SETTINGS TOGGLE SWITCH LOGIC ---
 const toggleSlider = document.getElementById('toggle-slider');

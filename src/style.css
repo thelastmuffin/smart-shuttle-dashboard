@@ -494,3 +494,38 @@ html, body {
   color: #10b981; 
   font-weight: bold;
 }
+
+/* --- ROUTE SELECTOR PANE --- */
+.route-selector {
+  display: flex;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 12px; 
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.route-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#btn-track-campus.active {
+  background: var(--accent-blue);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+#btn-track-seri.active {
+  background: #f59e0b;
+  color: white;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
