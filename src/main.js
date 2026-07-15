@@ -19,7 +19,9 @@ let simActive = true;
 let liveBusMarker = null;
 let currentBusAngle = 0;
 let currentTargetIndex = 1; 
-let seriTargetIndex = 3; // Mocking an active index for the U2 bus so the UI looks alive!
+let seriBusMarker = null;      // NEW: Bus 2 Marker
+let currentSeriAngle = 0;      // NEW: Bus 2 Rotation
+let seriTargetIndex = 0;       // NEW: Bus 2 Route Index
 let lastLoggedTimestamp = "";
 let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; 
 let panelUpdateInterval = null;
@@ -76,14 +78,14 @@ const stopCoords = {
   "Block L": { lat: 4.3851762, lng: 100.9709521 },
   
   // Seri Iskandar Town Stops
-  "Pump Station, Tronoh": { lat: 4.417200, lng: 100.985500 },
-  "Lotus Bandar U": { lat: 4.374500, lng: 100.978100 },
-  "Bandar Universiti": { lat: 4.371200, lng: 100.979000 },
-  "Seri Iskandar Terminal": { lat: 4.358500, lng: 100.984000 },
-  "SIBC @ Billion SI": { lat: 4.353300, lng: 100.983100 },
-  "Apartment Seri Iskandar": { lat: 4.349000, lng: 100.981000 },
-  "Iskandar Prima SOHO": { lat: 4.348000, lng: 100.980000 },
-  "IFS SOHO Apartment": { lat: 4.347500, lng: 100.979000 }
+  "Pump Station, Tronoh": { lat: 4.41934, lng: 100.9904023 },
+  "Lotus Bandar U": { lat: 4.3653742, lng: 100.9800968 },
+  "Bandar Universiti": { lat: 4.3644669, lng: 100.9793297 },
+  "Seri Iskandar Terminal": { lat: 4.3628764, lng: 100.9761312 },
+  "SIBC @ Billion SI": { lat: 4.3549557, lng: 100.9693651 }, // Using the SIBC coord
+  "Apartment Seri Iskandar": { lat: 4.365308, lng: 100.9625477 },
+  "Iskandar Prima SOHO": { lat: 4.3620317, lng: 100.9704162 },
+  "IFS SOHO Apartment": { lat: 4.3733473, lng: 100.9794385 }
 };
 
 const routeSequence = [
@@ -373,7 +375,67 @@ function processFirebaseData(data) {
   }
 }
 
-// THE GATEKEEPERS
+// ==========================================
+// 8.5 SERI ISKANDAR BUS PROCESSING
+// ==========================================
+function processSeriFirebaseData(data) {
+  if (data && data.lat && data.lng) {
+      if (seriBusMarker === null) {
+          // Give Bus 2 its own unique ID so it rotates independently
+          const seriBusImage = L.divIcon({
+              html: `
+                <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                  <img id="seri-bus-img" src="/bus-yellow.png" style="width: 50px; height: auto; transform: rotate(0deg); transition: transform 0.6s linear; filter: drop-shadow(2px 5px 4px rgba(0,0,0,0.4));">
+                </div>
+              `,
+              className: 'clear-icon',
+              iconSize: [60, 60],
+              iconAnchor: [30, 30],
+              popupAnchor: [0, -30]
+          });
+
+          seriBusMarker = L.marker([data.lat, data.lng], { icon: seriBusImage })
+              .on('click', () => openLiveSchedulePanel('seri'))
+              .addTo(map);
+
+      } else {
+          // Independent Rotation Math for Bus 2
+          const oldPos = seriBusMarker.getLatLng();
+          const dx = data.lng - oldPos.lng;
+          const dy = data.lat - oldPos.lat;
+
+          if (Math.abs(dx) > 0.00001 || Math.abs(dy) > 0.00001) {
+              const targetAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
+              let angleDiff = targetAngle - (currentSeriAngle % 360);
+              if (angleDiff > 180) angleDiff -= 360;
+              if (angleDiff < -180) angleDiff += 360;
+
+              currentSeriAngle += angleDiff;
+
+              const busImgElement = document.getElementById('seri-bus-img');
+              if (busImgElement) {
+                  busImgElement.style.transform = `rotate(${currentSeriAngle}deg)`;
+              }
+          }
+          seriBusMarker.setLatLng([data.lat, data.lng]);
+      }
+
+      // Geofence Snap for Seri Iskandar Route
+      for (let i = 0; i < seriRouteSequence.length; i++) {
+          const checkCoords = stopCoords[seriRouteSequence[i]];
+          if (!checkCoords) continue;
+          const checkDist = calculateDistance(data.lat, data.lng, checkCoords.lat, checkCoords.lng);
+
+          if (checkDist < 0.05) {
+              seriTargetIndex = (i + 1) % seriRouteSequence.length;
+              break;
+          }
+      }
+      updateLiveRoutesPanel(); 
+  }
+}
+
+// THE GATEKEEPERS (DUAL-BUS LISTENERS)
 const liveBusRef = ref(db, 'bus1/location');
 onValue(liveBusRef, (snapshot) => {
     if (!simActive) processFirebaseData(snapshot.val());
@@ -382,6 +444,16 @@ onValue(liveBusRef, (snapshot) => {
 const demoBusRef = ref(db, 'bus_demo/location');
 onValue(demoBusRef, (snapshot) => {
     if (simActive) processFirebaseData(snapshot.val());
+});
+
+const liveBus2Ref = ref(db, 'bus2/location');
+onValue(liveBus2Ref, (snapshot) => {
+    if (!simActive) processSeriFirebaseData(snapshot.val());
+});
+
+const demoBus2Ref = ref(db, 'bus2_demo/location');
+onValue(demoBus2Ref, (snapshot) => {
+    if (simActive) processSeriFirebaseData(snapshot.val());
 });
 
 // ==========================================
@@ -659,11 +731,17 @@ if (toggleSlider && toggleKnob && modeLabel) {
             toggleKnob.style.transform = "translateX(20px)"; 
         }
         
+        // Destroy old markers when switching modes
         if (liveBusMarker) {
             map.removeLayer(liveBusMarker);
             liveBusMarker = null; 
         }
+        if (seriBusMarker) {
+            map.removeLayer(seriBusMarker);
+            seriBusMarker = null; 
+        }
 
+        // Fetch Bus 1
         const targetPath = simActive ? 'bus_demo/location' : 'bus1/location';
         get(ref(db, targetPath)).then((snapshot) => {
             if (snapshot.exists()) {
@@ -672,6 +750,12 @@ if (toggleSlider && toggleKnob && modeLabel) {
                 etaDisplay.innerText = "Bus Offline";
                 etaDisplay.style.color = "#dc3545"; 
             }
-        }).catch((err) => console.error("Data fetch error:", err));
+        });
+        
+        // Fetch Bus 2
+        const targetPath2 = simActive ? 'bus2_demo/location' : 'bus2/location';
+        get(ref(db, targetPath2)).then((snapshot) => {
+            if (snapshot.exists()) processSeriFirebaseData(snapshot.val());
+        });
     });
 }
