@@ -249,26 +249,6 @@ function updateHighlightedStop() {
     });
 }
 
-function checkTeleport(lastPos, currentPos) {
-    if (!lastPos) return true; 
-    if (calculateDistance(lastPos.lat, lastPos.lng, currentPos.lat, currentPos.lng) > 1.0) {
-        return true; 
-    }
-    return false;
-}
-
-function advanceTargetIndex(lat, lng, currentIndex, sequence) {
-    const targetName = sequence[currentIndex];
-    const targetCoords = stopCoords[targetName];
-    if (!targetCoords) return currentIndex;
-
-    const dist = calculateDistance(lat, lng, targetCoords.lat, targetCoords.lng);
-    if (dist < 0.05) { 
-        return (currentIndex + 1) % sequence.length;
-    }
-    return currentIndex;
-}
-
 // ==========================================
 // 6. POPULATE MAP STOPS
 // ==========================================
@@ -373,6 +353,7 @@ updateLiveRoutesPanel();
 function processFirebaseData(data) {
   if (data && data.lat && data.lng) {
     
+    // --- 1. HARSH DRIVING ALERTS ---
     if (data.alerts && data.timestamp !== lastLoggedTimestamp) {
         const isBraking = data.alerts.harsh_brake === true;
         const isPothole = data.alerts.pothole === true;
@@ -394,6 +375,7 @@ function processFirebaseData(data) {
         }
     }
 
+    // --- 2. MAP MARKER SPAWNING & ROTATION ---
     if (liveBusMarker === null) {
         const busImage = L.divIcon({
             html: `
@@ -432,43 +414,23 @@ function processFirebaseData(data) {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
     
-    // --- TELEPORT RECOVERY & GEOFENCE (CAMPUS) ---
-    if (checkTeleport(lastCampusPos, {lat: data.lat, lng: data.lng})) {
-        campusInitialized = false; 
-    }
-    lastCampusPos = {lat: data.lat, lng: data.lng};
-
-    if (!campusInitialized) {
-        let closestIndex = 0;
-        let minDist = 999;
-        
-        for(let i=0; i<routeSequence.length; i++) {
-            let d = calculateDistance(data.lat, data.lng, stopCoords[routeSequence[i]].lat, stopCoords[routeSequence[i]].lng);
-            if (d < 0.05) {
-                closestIndex = i;
-                break; 
-            }
-            if (d < minDist) {
-                minDist = d;
-                closestIndex = i;
-            }
-        }
-        currentTargetIndex = (closestIndex + 1) % routeSequence.length;
-        campusInitialized = true;
-        updateHighlightedStop();
-    } else {
-        const newTarget = advanceTargetIndex(data.lat, data.lng, currentTargetIndex, routeSequence);
-        if (newTarget !== currentTargetIndex) {
-            currentTargetIndex = newTarget;
-            updateHighlightedStop();
-        }
+    // ========================================================
+    // 3. SERVER-AUTHORITATIVE INDEX SYNC (The missing piece!)
+    // ========================================================
+    if (data.targetIndex !== undefined && currentTargetIndex !== data.targetIndex) {
+        currentTargetIndex = data.targetIndex;
+        updateHighlightedStop(); // Moves the red dot on the map!
     }
 
+    // --- 4. UPDATE UI DASHBOARDS ---
     const targetStopName = routeSequence[currentTargetIndex];
     const targetCoords = stopCoords[targetStopName];
-    const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
-
-    updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'campus'); 
+    
+    if (targetCoords) {
+        const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
+        updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'campus'); 
+    }
+    
     refreshNearbyStops();
     updateLiveRoutesPanel(); 
 
@@ -520,34 +482,14 @@ function processSeriFirebaseData(data) {
           }
           seriBusMarker.setLatLng([data.lat, data.lng]);
       }
+      // (Inside processSeriFirebaseData, right below seriBusMarker.setLatLng...)
 
-      // --- TELEPORT RECOVERY & GEOFENCE (SERI) ---
-      if (checkTeleport(lastSeriPos, {lat: data.lat, lng: data.lng})) {
-          seriInitialized = false; 
+      // SERVER-AUTHORITATIVE SYNC (SERI ISKANDAR)
+      if (data.targetIndex !== undefined && seriTargetIndex !== data.targetIndex) {
+        seriTargetIndex = data.targetIndex;
+        updateHighlightedStop(); 
       }
-      lastSeriPos = {lat: data.lat, lng: data.lng};
-
-      if (!seriInitialized) {
-          let closestIndex = 0;
-          let minDist = 999;
-          
-          for(let i=0; i<seriRouteSequence.length; i++) {
-              let d = calculateDistance(data.lat, data.lng, stopCoords[seriRouteSequence[i]].lat, stopCoords[seriRouteSequence[i]].lng);
-              if (d < 0.05) {
-                  closestIndex = i;
-                  break; 
-              }
-              if (d < minDist) {
-                  minDist = d;
-                  closestIndex = i;
-              }
-          }
-          seriTargetIndex = (closestIndex + 1) % seriRouteSequence.length;
-          seriInitialized = true;
-      } else {
-          seriTargetIndex = advanceTargetIndex(data.lat, data.lng, seriTargetIndex, seriRouteSequence);
-      }
-
+      
       const targetStopName = seriRouteSequence[seriTargetIndex];
       const targetCoords = stopCoords[targetStopName];
       if (targetCoords) {
