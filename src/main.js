@@ -57,7 +57,7 @@ const pegmanIcon = L.divIcon({
 // ==========================================
 const stopCoords = {
   // Campus Stops
-  "PMMD": { lat: 4.3883576, lng: 100.9672179 },
+  "PMMD": { lat: 4.388208, lng: 100.9679694 },
   "An-Nur Mosque": { lat: 4.3860407, lng: 100.9738842 },
   "Main Gate": { lat: 4.3856013, lng: 100.9789672 },
   "V7": { lat: 4.3832394, lng: 100.9747654 },
@@ -89,7 +89,7 @@ const seriRouteSequence = [
   "PMMD", "Main Gate", "Pump Station, Tronoh", "Lotus Bandar U", 
   "Bandar Universiti", "Seri Iskandar Terminal", "SIBC @ Billion SI", 
   "Apartment Seri Iskandar", "Iskandar Prima SOHO", "IFS SOHO Apartment", 
-  "Main Gate", "Block L", "Chancellor Complex", "R&D", "V4", "V5"
+  "Main Gate", "Block L", "Chancellor Complex", "R&D", "V4", "V5", "PMMD" // <--- PMMD added to the end to loop!
 ];
 
 const utpBounds = L.latLngBounds(Object.values(stopCoords).map(({ lat, lng }) => [lat, lng]));
@@ -252,27 +252,23 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
     })
   }).addTo(map);
 
-  marker.on('click', () => {
-      // MAGIC FIX: Respect the toggle switch for shared stops (like Main Gate)
-      let activeType = mapTrackingMode;
-      
-      // Override if the stop ONLY belongs to one specific route
-      const isCampusOnly = !seriRouteSequence.includes(name);
-      if (isCampusOnly) activeType = 'campus';
-      if (isSeriStop) activeType = 'seri';
+  // Fix: Bind an empty popup first so Leaflet natively handles the open/close state!
+  marker.bindPopup('<div style="padding:5px;">Loading...</div>');
 
+  marker.on('click', function() {
+      const activeType = isSeriStop ? 'seri' : 'campus';
       const activeMarker = activeType === 'seri' ? seriBusMarker : liveBusMarker;
       const seqArray = activeType === 'seri' ? seriRouteSequence : routeSequence;
       
       if (!activeMarker) {
-          marker.bindPopup(`
+          this.setPopupContent(`
             <div style="text-align:center; font-family: system-ui, sans-serif;">
                 <b style="font-size:14px; color:#1e293b;">${displayName}</b><br>
                 <div style="margin-top:4px; font-size:13px; color:#ef4444; font-weight:bold; background:#fef2f2; padding:4px 8px; border-radius:6px; border: 1px solid #fca5a5;">
                     Bus Offline
                 </div>
             </div>
-          `).openPopup();
+          `);
           return; 
       }
       
@@ -283,14 +279,15 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
       const m = Math.floor(rawMins);
       const s = Math.floor((rawMins - m) * 60);
       
-      marker.bindPopup(`
+      // Fix: Use setPopupContent to inject the ETA into the already-open popup
+      this.setPopupContent(`
         <div style="text-align:center; font-family: system-ui, sans-serif;">
             <b style="font-size:14px; color:#1e293b;">${displayName}</b><br>
             <div style="margin-top:4px; font-size:13px; color:${markerColor}; font-weight:bold; background:#eff6ff; padding:4px 8px; border-radius:6px; border: 1px solid #bfdbfe;">
                 Bus ETA: ${m}m ${s}s
             </div>
         </div>
-      `).openPopup();
+      `);
   });
   stopMarkers[name] = marker;
 });
