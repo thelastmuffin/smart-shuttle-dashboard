@@ -100,16 +100,16 @@
             <div class="bus-header">
               <div class="route-badge U1">U1</div>
               <div>
-                <h4>ALA 1001</h4>
-                <p>Smart Shuttle Node</p>
+                <h4>ALM 4021</h4>
+                <p>UTP Small Bus</p>
               </div>
               <span class="pill primary">Live Map</span>
             </div>
-            <div class="bus-driver">
+            <div class="bus-driver" style="cursor: pointer; transition: 0.2s;" onclick="openDriverModal('Ahmad J.', '4.8', 'U1 Campus Loop')" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
               <div class="avatar">👨‍✈️</div>
               <div>
-                <h4>Ahmad bin Abdullah</h4>
-                <p>⭐ 4.8 Rating</p>
+                <h4>Ahmad J.</h4>
+                <p>⭐ 4.8 Rating <span style="font-size: 10px; color: var(--accent-blue); margin-left: 5px;">View Profile ></span></p>
               </div>
             </div>
             <div class="bus-stats">
@@ -118,8 +118,8 @@
                 <h4 style="color: var(--accent-green);">Within UTP Campus</h4>
               </div>
               <div class="text-right">
-                <p class="warning-text">Medium</p>
-                <h4>32/50</h4>
+                <p style="color: #309b24; font-weight: bold;">Low</p>
+                <h4>12/32</h4>
               </div>
             </div>
           </div>
@@ -129,15 +129,15 @@
               <div style="background: #f59e0b;" class="route-badge U1">U2</div>
               <div>
                 <h4>ALB 2044</h4>
-                <p>Standard Bus</p>
+                <p>UTP Electric Bus</p>
               </div>
               <span class="pill success">On Time</span>
             </div>
-            <div class="bus-driver">
+            <div class="bus-driver" style="cursor: pointer; transition: 0.2s;" onclick="openDriverModal('Kamal R.', '4.9', 'U2 Seri Iskandar')" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
               <div class="avatar">👨‍✈️</div>
               <div>
-                <h4>Muthusamy</h4>
-                <p>⭐ 4.9 Rating</p>
+                <h4>Kamal R.</h4>
+                <p>⭐ 4.9 Rating <span style="font-size: 10px; color: var(--accent-blue); margin-left: 5px;">View Profile ></span></p>
               </div>
             </div>
             <div class="bus-stats">
@@ -147,7 +147,7 @@
               </div>
               <div class="text-right">
                 <p style="color: #ef4444; font-weight: bold;">High</p>
-                <h4>45/50</h4>
+                <h4>38/40</h4>
               </div>
             </div>
           </div>
@@ -316,7 +316,7 @@
           </div>
         </div>
       </div>
-      
+
       <div id="view-settings" class="view" style="display:none;">
         <div class="page-content">
           <h2>Settings</h2>
@@ -344,6 +344,45 @@
               <div id="toggle-slider" class="toggle" style="background-color: #3b82f6; cursor: pointer;">
                 <div id="toggle-knob" style="transform: translateX(0);"></div>
               </div>
+            </div>
+          </div>
+
+          <div id="driver-modal-overlay" class="modal-overlay">
+            <div id="driver-modal" class="bottom-sheet">
+              <div class="modal-handle"></div>
+              
+              <div class="driver-profile-header">
+                <div class="avatar large">👨‍✈️</div>
+                <div class="driver-info-large">
+                  <h2 id="modal-driver-name">Driver Name</h2>
+                  <p id="modal-driver-route">Route Name</p>
+                  <div class="rating-badge">⭐ <span id="modal-driver-rating">0.0</span> Rating</div>
+                </div>
+              </div>
+
+              <div class="driver-actions">
+                <button class="action-btn"><span class="icon">📞</span> Call Driver</button>
+                <button class="action-btn"><span class="icon">✉️</span> Email Support</button>
+              </div>
+
+              <div class="report-section">
+                <h3>Report an Issue</h3>
+                <p>Select a reason below to notify campus security anonymously.</p>
+                <div class="report-grid">
+                  <button class="report-btn" onclick="submitReport(this)">🏎️ Speeding</button>
+                  <button class="report-btn" onclick="submitReport(this)">⚠️ Reckless Driving</button>
+                  <button class="report-btn" onclick="submitReport(this)">🚬 Smoking</button>
+                  <button class="report-btn" onclick="submitReport(this)">🗣️ Rude Behavior</button>
+                  <button class="report-btn" onclick="submitReport(this)">📱 Texting & Driving</button>
+                  <button class="report-btn" onclick="submitReport(this)">🛑 Missed Stop</button>
+                </div>
+                
+                <div id="report-success" class="success-message" style="display:none;">
+                  ✅ Report submitted anonymously. Thank you for keeping our campus safe.
+                </div>
+              </div>
+              
+              <button id="close-driver-modal" class="close-modal-btn">Close</button>
             </div>
           </div>
 

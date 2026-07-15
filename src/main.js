@@ -883,3 +883,53 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+// ==========================================
+// DRIVER PROFILE MODAL LOGIC
+// ==========================================
+const driverModalOverlay = document.getElementById('driver-modal-overlay');
+const closeDriverModalBtn = document.getElementById('close-driver-modal');
+
+// Attach to the Window object so the HTML onclick="openDriverModal(...)" can find it!
+window.openDriverModal = function(name, rating, route) {
+    // 1. Inject the data into the modal
+    document.getElementById('modal-driver-name').innerText = name;
+    document.getElementById('modal-driver-rating').innerText = rating;
+    document.getElementById('modal-driver-route').innerText = "Assigned Route: " + route;
+
+    // 2. Reset the report buttons (in case they opened the modal previously)
+    document.getElementById('report-success').style.display = 'none';
+    document.querySelectorAll('.report-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        btn.style.display = 'block'; // Ensure buttons are visible
+    });
+
+    // 3. Open the Modal!
+    driverModalOverlay.classList.add('active');
+};
+
+// Close Modal Logic
+if (closeDriverModalBtn && driverModalOverlay) {
+    closeDriverModalBtn.addEventListener('click', () => {
+        driverModalOverlay.classList.remove('active');
+    });
+
+    // Allow clicking the dark background to close it
+    driverModalOverlay.addEventListener('click', (e) => {
+        if (e.target === driverModalOverlay) {
+            driverModalOverlay.classList.remove('active');
+        }
+    });
+}
+
+// Logic for clicking a Report Button
+window.submitReport = function(buttonElement) {
+    // Visually show the button was clicked
+    buttonElement.classList.add('selected');
+
+    // Simulate sending data to the server, then show the success message
+    setTimeout(() => {
+        document.querySelectorAll('.report-btn').forEach(btn => btn.style.display = 'none');
+        document.getElementById('report-success').style.display = 'block';
+    }, 400);
+};
