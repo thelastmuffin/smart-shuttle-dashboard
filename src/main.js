@@ -70,7 +70,7 @@ const stopCoords = {
   // Campus Stops
   "PMMD": { lat: 4.388208, lng: 100.9679694 },
   "An-Nur Mosque": { lat: 4.3860407, lng: 100.9738842 },
-  "Main Gate": { lat: 4.3856013, lng: 100.9789672 },
+  "Main Gate": { lat: 4.3858896, lng: 100.9794116 },
   "V7": { lat: 4.3832394, lng: 100.9747654 },
   "Chancellor Complex": { lat: 4.381329, lng: 100.970230 },
   "Chancellor Complex 2": { lat: 4.3823948, lng: 100.9703333 },
