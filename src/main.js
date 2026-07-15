@@ -959,8 +959,23 @@ window.submitIssueReport = function() {
         alert("Please select a reason for the report first.");
         return;
     }
+
+    // 1. Show the success message and hide the form
     document.getElementById('submit-report-btn').style.display = 'none';
     document.getElementById('report-success').style.display = 'block';
+
+    // 2. Wait 2 seconds, then close the section AND the modal
+    setTimeout(() => {
+        // Hide the report section
+        document.getElementById('report-section').style.display = 'none';
+        
+        // Reset the form for next time
+        document.getElementById('report-reason').value = "";
+        document.getElementById('report-details').value = "";
+        
+        // Close the entire modal
+        driverModalOverlay.classList.remove('active');
+    }, 2000); // 2000ms = 2 seconds delay
 };
 
 // 5. Close Modal Events
