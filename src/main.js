@@ -27,6 +27,9 @@ let currentLocation = { lat: 4.3856013, lng: 100.9789672 };
 let panelUpdateInterval = null;
 let currentPanelBusType = 'campus';
 let mapTrackingMode = 'campus'; // Tracks which button is clicked!
+let campusInitialized = false;
+let seriInitialized = false;
+
 
 // ==========================================
 // 3. MAP & ICON INITIALIZATION
@@ -250,9 +253,16 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
   }).addTo(map);
 
   marker.on('click', () => {
-      // Intelligently select the correct bus based on the stop clicked
-      const activeMarker = isSeriStop ? seriBusMarker : liveBusMarker;
-      const seqArray = isSeriStop ? seriRouteSequence : routeSequence;
+      // MAGIC FIX: Respect the toggle switch for shared stops (like Main Gate)
+      let activeType = mapTrackingMode;
+      
+      // Override if the stop ONLY belongs to one specific route
+      const isCampusOnly = !seriRouteSequence.includes(name);
+      if (isCampusOnly) activeType = 'campus';
+      if (isSeriStop) activeType = 'seri';
+
+      const activeMarker = activeType === 'seri' ? seriBusMarker : liveBusMarker;
+      const seqArray = activeType === 'seri' ? seriRouteSequence : routeSequence;
       
       if (!activeMarker) {
           marker.bindPopup(`
@@ -390,11 +400,22 @@ function processFirebaseData(data) {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
     
-    // STATEFUL GEOFENCE SNAP
-    const newTarget = advanceTargetIndex(data.lat, data.lng, currentTargetIndex, routeSequence);
-    if (newTarget !== currentTargetIndex) {
-        currentTargetIndex = newTarget;
-        updateHighlightedStop();
+    // INITIALIZATION & STATEFUL GEOFENCE SNAP
+    if (!campusInitialized) {
+        let closest = 0;
+        let minDist = 999;
+        for(let i=0; i<routeSequence.length; i++) {
+            let d = calculateDistance(data.lat, data.lng, stopCoords[routeSequence[i]].lat, stopCoords[routeSequence[i]].lng);
+            if (d < minDist) { minDist = d; closest = i; }
+        }
+        currentTargetIndex = (closest + 1) % routeSequence.length;
+        campusInitialized = true;
+    } else {
+        const newTarget = advanceTargetIndex(data.lat, data.lng, currentTargetIndex, routeSequence);
+        if (newTarget !== currentTargetIndex) {
+            currentTargetIndex = newTarget;
+            updateHighlightedStop();
+        }
     }
 
     const targetStopName = routeSequence[currentTargetIndex];
@@ -458,14 +479,18 @@ function processSeriFirebaseData(data) {
           seriBusMarker.setLatLng([data.lat, data.lng]);
       }
 
-      // STATEFUL GEOFENCE SNAP FOR BUS 2
-      seriTargetIndex = advanceTargetIndex(data.lat, data.lng, seriTargetIndex, seriRouteSequence);
-
-      const targetStopName = seriRouteSequence[seriTargetIndex];
-      const targetCoords = stopCoords[targetStopName];
-      if (targetCoords) {
-          const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
-          updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'seri');
+      // INITIALIZATION & STATEFUL GEOFENCE SNAP FOR BUS 2
+      if (!seriInitialized) {
+          let closest = 0;
+          let minDist = 999;
+          for(let i=0; i<seriRouteSequence.length; i++) {
+              let d = calculateDistance(data.lat, data.lng, stopCoords[seriRouteSequence[i]].lat, stopCoords[seriRouteSequence[i]].lng);
+              if (d < minDist) { minDist = d; closest = i; }
+          }
+          seriTargetIndex = (closest + 1) % seriRouteSequence.length;
+          seriInitialized = true;
+      } else {
+          seriTargetIndex = advanceTargetIndex(data.lat, data.lng, seriTargetIndex, seriRouteSequence);
       }
       refreshNearbyStops();
 
@@ -755,14 +780,6 @@ function openLiveSchedulePanel(busType) {
         else clearInterval(panelUpdateInterval); 
     }, 1000);
 }
-
-// ==========================================
-// 11. STATIONARY SERI ISKANDAR BUS
-// ==========================================
-// Replaced the Amber Diamond with the yellow bus image!
-const seriIskandarBus = L.marker([4.358500, 100.984000], { 
-    icon: staticYellowBusIcon
-}).addTo(map).on('click', () => openLiveSchedulePanel('seri'));
 
 // ==========================================
 // MAP ROUTE SELECTOR LOGIC
