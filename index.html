@@ -317,7 +317,7 @@
         </div>
       </div>
 
-      <div id="view-settings" class="view" style="display:none;">
+<div id="view-settings" class="view" style="display:none;">
         <div class="page-content">
           <h2>Settings</h2>
           
@@ -347,46 +347,48 @@
             </div>
           </div>
 
-          <div id="driver-modal-overlay" class="modal-overlay">
-            <div id="driver-modal" class="bottom-sheet">
-              <div class="modal-handle"></div>
-              
-              <div class="driver-profile-header">
-                <div class="avatar large">👨‍✈️</div>
-                <div class="driver-info-large">
-                  <h2 id="modal-driver-name">Driver Name</h2>
-                  <p id="modal-driver-route">Route Name</p>
-                  <div class="rating-badge">⭐ <span id="modal-driver-rating">0.0</span> Rating</div>
-                </div>
-              </div>
-
-              <div class="driver-actions">
-                <button class="action-btn"><span class="icon">📞</span> Call Driver</button>
-                <button class="action-btn"><span class="icon">✉️</span> Email Support</button>
-              </div>
-
-              <div class="report-section">
-                <h3>Report an Issue</h3>
-                <p>Select a reason below to notify campus security anonymously.</p>
-                <div class="report-grid">
-                  <button class="report-btn" onclick="submitReport(this)">🏎️ Speeding</button>
-                  <button class="report-btn" onclick="submitReport(this)">⚠️ Reckless Driving</button>
-                  <button class="report-btn" onclick="submitReport(this)">🚬 Smoking</button>
-                  <button class="report-btn" onclick="submitReport(this)">🗣️ Rude Behavior</button>
-                  <button class="report-btn" onclick="submitReport(this)">📱 Texting & Driving</button>
-                  <button class="report-btn" onclick="submitReport(this)">🛑 Missed Stop</button>
-                </div>
-                
-                <div id="report-success" class="success-message" style="display:none;">
-                  ✅ Report submitted anonymously. Thank you for keeping our campus safe.
-                </div>
-              </div>
-              
-              <button id="close-driver-modal" class="close-modal-btn">Close</button>
+        </div> 
+      </div> 
+      <div id="driver-modal-overlay" class="modal-overlay">
+        <div id="driver-modal" class="bottom-sheet">
+          <div class="modal-handle"></div>
+          
+          <div class="driver-profile-header">
+            <div class="avatar large">👨‍✈️</div>
+            <div class="driver-info-large">
+              <h2 id="modal-driver-name">Driver Name</h2>
+              <p id="modal-driver-route">Route Name</p>
+              <div class="rating-badge">⭐ <span id="modal-driver-rating">0.0</span> Rating</div>
             </div>
           </div>
 
-        </div> </div> <nav class="bottom-nav">
+          <div class="driver-actions">
+            <button class="action-btn"><span class="icon">📞</span> Call Driver</button>
+            <button class="action-btn"><span class="icon">✉️</span> Email Support</button>
+          </div>
+
+          <div class="report-section">
+            <h3>Report an Issue</h3>
+            <p>Select a reason below to notify campus security anonymously.</p>
+            <div class="report-grid">
+              <button class="report-btn" onclick="submitReport(this)">🏎️ Speeding</button>
+              <button class="report-btn" onclick="submitReport(this)">⚠️ Reckless Driving</button>
+              <button class="report-btn" onclick="submitReport(this)">🚬 Smoking</button>
+              <button class="report-btn" onclick="submitReport(this)">🗣️ Rude Behavior</button>
+              <button class="report-btn" onclick="submitReport(this)">📱 Texting & Driving</button>
+              <button class="report-btn" onclick="submitReport(this)">🛑 Missed Stop</button>
+            </div>
+            
+            <div id="report-success" class="success-message" style="display:none;">
+              ✅ Report submitted anonymously. Thank you for keeping our campus safe.
+            </div>
+          </div>
+          
+          <button id="close-driver-modal" class="close-modal-btn">Close</button>
+        </div>
+      </div>
+
+      <nav class="bottom-nav">
         <a href="#" class="nav-item active"><span class="icon">🗺️</span><span>Map</span></a>
         <a href="#" class="nav-item"><span class="icon">🛤️</span><span>Routes</span></a>
         <a href="#" class="nav-item"><span class="icon">🚌</span><span>Buses</span></a>
