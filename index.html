@@ -44,36 +44,21 @@
         
       </div>
 
-      <div id="view-routes" class="view" style="display:none;">
+<div id="view-routes" class="view" style="display:none;">
         <div class="page-content">
-          <h2>All Routes</h2>
-          <p class="subtitle">View detailed stops for each route</p>
+          <h2>Today's Live Routes</h2>
+          <p class="subtitle">Real-time progress for active buses</p>
           
           <div class="ui-card route-card">
             <div class="route-header">
               <div class="route-badge U1">U1</div>
               <div>
                 <h4>Within UTP Campus</h4>
-                <span class="pill outline">10 Stops</span>
-                <span class="pill success">Active Now</span>
+                <span class="pill outline">Campus Loop</span>
+                <span class="pill success">Live GPS Tracking</span>
               </div>
             </div>
-            <div class="timeline">
-              <div class="timeline-item"><h4>PMMD</h4><span>Start Loop</span></div>
-              <div class="timeline-item"><h4>An-Nur Mosque</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Main Gate</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>V6</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Chancellor Complex</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>R&D</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>V5</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>V4</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>PMMD</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Block L</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Chancellor Complex</h4><span>Return Stop</span></div>
-              <div class="timeline-item"><h4>V6</h4><span>Return Stop</span></div>
-              <div class="timeline-item"><h4>An-Nur Mosque</h4><span>Return Stop</span></div>
-              <div class="timeline-item"><h4>PMMD</h4><span>End Loop</span></div>
-            </div>
+            <div class="timeline" id="live-timeline-u1"></div>
           </div>
 
           <div class="ui-card route-card">
@@ -81,30 +66,14 @@
               <div style="background: #f59e0b;" class="route-badge U1">U2</div>
               <div>
                 <h4>Seri Iskandar Town</h4>
-                <span class="pill outline">7 Stops</span>
+                <span class="pill outline">Outbound</span>
                 <span class="pill success">Active Now</span>
               </div>
             </div>
-            <div class="timeline">
-              <div class="timeline-item"><h4>PMMD</h4><span>Start Loop</span></div>
-              <div class="timeline-item"><h4>Main Gate</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Pump Station, Tronoh</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Lotus Bandar U</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Bandar Universiti</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Seri Iskandar Bus Terminal</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>SIBC @ Billion SI</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Apartment Seri Iskandar</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Iskandar Prima SOHO</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>IFS SOHO Apartment (IUS)</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Main Gate</h4><span>Return to Campus</span></div>
-              <div class="timeline-item"><h4>Block L</h4><span>Drop-off</span></div>
-              <div class="timeline-item"><h4>Chancellor Complex</h4><span>Drop-off</span></div>
-              <div class="timeline-item"><h4>R&D</h4><span>Drop-off</span></div>
-              <div class="timeline-item"><h4>V4 & V5</h4><span>End Loop</span></div>
-            </div>
+            <div class="timeline" id="live-timeline-u2"></div>
           </div>
 
-          <div class="ui-card route-card">
+          <div class="ui-card route-card" style="opacity: 0.6;">
             <div class="route-header">
               <div style="background: #64748b;" class="route-badge U1">U3</div>
               <div>
@@ -113,19 +82,11 @@
                 <span class="pill outline" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);">Inactive</span>
               </div>
             </div>
-            <div class="timeline">
-              <div class="timeline-item"><h4>PMMD</h4><span>Start Route</span></div>
-              <div class="timeline-item"><h4>SIBC Hostel</h4><span>Pick-up</span></div>
-              <div class="timeline-item"><h4>KTM Batu Gajah</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>AEON Station 18</h4><span>Stop</span></div>
-              <div class="timeline-item"><h4>Ipoh Parade</h4><span>Turnaround / Stop</span></div>
-              <div class="timeline-item"><h4>SIBC Hostel</h4><span>Return Drop-off</span></div>
-            </div>
           </div>
 
         </div>
       </div>
-
+      
       <div id="view-buses" class="view" style="display:none;">
         <div class="page-content">
           <h2>Active Fleet</h2>

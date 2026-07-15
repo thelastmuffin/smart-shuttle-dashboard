@@ -15,12 +15,13 @@ const etaDisplay = document.getElementById("eta-display");
 // ==========================================
 // 2. GLOBAL STATE VARIABLES
 // ==========================================
-let simActive = true; // <-- ADDED HERE FOR GLOBAL ACCESS
+let simActive = true; 
 let liveBusMarker = null;
 let currentBusAngle = 0;
-let currentTargetIndex = 1; // Start looking for the 2nd stop (An-Nur Mosque)
+let currentTargetIndex = 1; 
+let seriTargetIndex = 3; // Mocking an active index for the U2 bus so the UI looks alive!
 let lastLoggedTimestamp = "";
-let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; // Main Gate default
+let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; 
 let panelUpdateInterval = null;
 let currentPanelBusType = 'campus';
 
@@ -45,26 +46,24 @@ const pegmanIcon = L.divIcon({
     popupAnchor: [0, -40]
 });
 
-function getGpsArrowIcon(idName, hexColor) {
-    return L.divIcon({
-        html: `<div id="${idName}" style="
-            width: 0; height: 0; 
-            border-left: 12px solid transparent;
-            border-right: 12px solid transparent;
-            border-bottom: 30px solid ${hexColor}; 
-            filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.5));
-            transition: transform 0.1s linear;
-        "></div>`,
-        className: 'clear-icon',
-        iconSize: [24, 30],
-        iconAnchor: [12, 15]
-    });
-}
+// A reusable yellow bus icon function to perfectly match the rotating one!
+const staticYellowBusIcon = L.divIcon({
+    html: `
+      <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+        <img src="/bus-yellow.png" style="width: 50px; height: auto; filter: drop-shadow(2px 5px 4px rgba(0,0,0,0.4));">
+      </div>
+    `,
+    className: 'clear-icon',
+    iconSize: [60, 60],
+    iconAnchor: [30, 30],
+    popupAnchor: [0, -30]
+});
 
 // ==========================================
 // 4. THE DATA DICTIONARY
 // ==========================================
 const stopCoords = {
+  // Campus Stops
   "PMMD": { lat: 4.3883576, lng: 100.9672179 },
   "An-Nur Mosque": { lat: 4.3860407, lng: 100.9738842 },
   "Main Gate": { lat: 4.3856013, lng: 100.9789672 },
@@ -74,13 +73,30 @@ const stopCoords = {
   "R&D": { lat: 4.3792507, lng: 100.9608721 },
   "V4": { lat: 4.3887305, lng: 100.9651686 },
   "V5": { lat: 4.3843636, lng: 100.9626794 },
-  "Block L": { lat: 4.3851762, lng: 100.9709521 }
+  "Block L": { lat: 4.3851762, lng: 100.9709521 },
+  
+  // Seri Iskandar Town Stops
+  "Pump Station, Tronoh": { lat: 4.417200, lng: 100.985500 },
+  "Lotus Bandar U": { lat: 4.374500, lng: 100.978100 },
+  "Bandar Universiti": { lat: 4.371200, lng: 100.979000 },
+  "Seri Iskandar Terminal": { lat: 4.358500, lng: 100.984000 },
+  "SIBC @ Billion SI": { lat: 4.353300, lng: 100.983100 },
+  "Apartment Seri Iskandar": { lat: 4.349000, lng: 100.981000 },
+  "Iskandar Prima SOHO": { lat: 4.348000, lng: 100.980000 },
+  "IFS SOHO Apartment": { lat: 4.347500, lng: 100.979000 }
 };
 
 const routeSequence = [
   "PMMD", "An-Nur Mosque", "Main Gate", "V6", "Chancellor Complex",
   "R&D", "V5", "V4", "PMMD", "Block L", "Chancellor Complex 2", "V6",
   "An-Nur Mosque", "PMMD"
+];
+
+const seriRouteSequence = [
+  "PMMD", "Main Gate", "Pump Station, Tronoh", "Lotus Bandar U", 
+  "Bandar Universiti", "Seri Iskandar Terminal", "SIBC @ Billion SI", 
+  "Apartment Seri Iskandar", "Iskandar Prima SOHO", "IFS SOHO Apartment", 
+  "Main Gate", "Block L", "Chancellor Complex", "R&D", "V4", "V5"
 ];
 
 const utpBounds = L.latLngBounds(Object.values(stopCoords).map(({ lat, lng }) => [lat, lng]));
@@ -105,29 +121,33 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c; 
 }
 
-function getNextBusStopIndex(stopName) {
-    for (let i = 0; i < routeSequence.length; i++) {
-        let checkIndex = (currentTargetIndex + i) % routeSequence.length;
-        if (routeSequence[checkIndex] === stopName) return checkIndex;
+function getNextBusStopIndex(stopName, seqArray = routeSequence) {
+    for (let i = 0; i < seqArray.length; i++) {
+        let checkIndex = (currentTargetIndex + i) % seqArray.length;
+        if (seqArray[checkIndex] === stopName) return checkIndex;
     }
     return 0; 
 }
 
-function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex) {
+function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray = routeSequence) {
     const campusBusSpeedKmH = 22; 
     const boardingDelayMinutes = 0.3; 
     let totalDistanceKm = 0;
     let intermediateStops = 0;
 
-    const nextStopName = routeSequence[currentTargetIndex];
+    const targetIndex = (seqArray === routeSequence) ? currentTargetIndex : seriTargetIndex;
+    const nextStopName = seqArray[targetIndex];
     const nextStopCoords = stopCoords[nextStopName];
+    
+    if(!nextStopCoords) return 0;
+    
     totalDistanceKm += calculateDistance(currentLat, currentLng, nextStopCoords.lat, nextStopCoords.lng);
 
-    let scanIndex = currentTargetIndex;
+    let scanIndex = targetIndex;
     while (scanIndex !== targetStopIndex) {
-        let currentLegName = routeSequence[scanIndex];
-        let nextLegIndex = (scanIndex + 1) % routeSequence.length;
-        let nextLegName = routeSequence[nextLegIndex];
+        let currentLegName = seqArray[scanIndex];
+        let nextLegIndex = (scanIndex + 1) % seqArray.length;
+        let nextLegName = seqArray[nextLegIndex];
         totalDistanceKm += calculateDistance(
             stopCoords[currentLegName].lat, stopCoords[currentLegName].lng,
             stopCoords[nextLegName].lat, stopCoords[nextLegName].lng
@@ -164,6 +184,10 @@ function updateHighlightedStop() {
     Object.entries(stopMarkers).forEach(([name, marker]) => {
         const isNextStop = name === routeSequence[currentTargetIndex];
         const color = isNextStop ? '#ef4444' : '#3b82f6';
+        
+        // Let Seri Iskandar specific nodes remain blue to avoid confusion, only campus nodes turn red.
+        if (!routeSequence.includes(name)) return;
+        
         marker.setIcon(L.divIcon({
             html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
             className: 'clear-icon',
@@ -179,10 +203,14 @@ function updateHighlightedStop() {
 const stopMarkers = {};
 Object.entries(stopCoords).forEach(([name, coords]) => {
   const displayName = name.replace(" 2", ""); 
+  const isSeriStop = !routeSequence.includes(name);
+
+  // Optionally make SI stops slightly different color, but we'll stick to blue for consistency
+  const markerColor = isSeriStop ? '#f59e0b' : '#3b82f6';
 
   const marker = L.marker([coords.lat, coords.lng], {
     icon: L.divIcon({
-      html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
+      html: `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${markerColor}; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.35);"></div>`,
       className: 'clear-icon',
       iconSize: [16, 16],
       iconAnchor: [8, 8]
@@ -193,15 +221,17 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
       if (!liveBusMarker) return; 
       let currentBusPos = liveBusMarker.getLatLng();
       
-      const targetRouteIndex = getNextBusStopIndex(name);
-      const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
+      const seqArray = isSeriStop ? seriRouteSequence : routeSequence;
+      const targetRouteIndex = getNextBusStopIndex(name, seqArray);
+      const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex, seqArray);
+      
       const m = Math.floor(rawMins);
       const s = Math.floor((rawMins - m) * 60);
       
       marker.bindPopup(`
         <div style="text-align:center; font-family: system-ui, sans-serif;">
             <b style="font-size:14px; color:#1e293b;">${displayName}</b><br>
-            <div style="margin-top:4px; font-size:13px; color:#3b82f6; font-weight:bold; background:#eff6ff; padding:4px 8px; border-radius:6px; border: 1px solid #bfdbfe;">
+            <div style="margin-top:4px; font-size:13px; color:${markerColor}; font-weight:bold; background:#eff6ff; padding:4px 8px; border-radius:6px; border: 1px solid #bfdbfe;">
                 Bus ETA: ${m}m ${s}s
             </div>
         </div>
@@ -211,13 +241,51 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
 });
 
 // ==========================================
-// 7. FIREBASE LIVE LISTENER (DUAL MODE)
+// 7. NEW: LIVE ROUTES TAB UI LOGIC
+// ==========================================
+function renderLiveTimeline(containerId, sequence, currentIndex) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    let html = "";
+    sequence.forEach((stop, index) => {
+        if (stop === "Chancellor Complex 2") return; 
+        
+        let className = "";
+        let status = "Upcoming";
+        
+        if (index < currentIndex) {
+            className = "passed";
+            status = "Passed";
+        } else if (index === currentIndex) {
+            className = "active";
+            status = "Next Stop";
+        }
+
+        html += `
+            <div class="timeline-item ${className}">
+                <h4>${stop.replace(" 2", "")}</h4>
+                <span>${status}</span>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function updateLiveRoutesPanel() {
+    renderLiveTimeline('live-timeline-u1', routeSequence, currentTargetIndex);
+    renderLiveTimeline('live-timeline-u2', seriRouteSequence, seriTargetIndex);
+}
+// Init the panel
+updateLiveRoutesPanel();
+
+// ==========================================
+// 8. FIREBASE LIVE LISTENER (DUAL MODE)
 // ==========================================
 
 function processFirebaseData(data) {
   if (data && data.lat && data.lng) {
     
-    // HISTORICAL DATA LOGGER
     if (data.alerts && data.timestamp !== lastLoggedTimestamp) {
         const isBraking = data.alerts.harsh_brake === true;
         const isPothole = data.alerts.pothole === true;
@@ -239,11 +307,7 @@ function processFirebaseData(data) {
         }
     }
 
-   // LIVE MARKER
     if (liveBusMarker === null) {
-        
-        // We put the image inside a 60x60 square container. 
-        // This stops the edges of the bus from clipping when it rotates!
         const busImage = L.divIcon({
             html: `
               <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
@@ -261,33 +325,23 @@ function processFirebaseData(data) {
             .addTo(map); 
 
     } else {
-        // --- ROTATION MATH ---
         const oldPos = liveBusMarker.getLatLng();
         const dx = data.lng - oldPos.lng;
         const dy = data.lat - oldPos.lat;
 
-        // Only calculate a new angle if the bus actually moved a measurable distance
         if (Math.abs(dx) > 0.00001 || Math.abs(dy) > 0.00001) {
-            
-            // Calculate the target angle (Math.atan2 is 0 at East, 90 at North)
-            // CSS rotation is the opposite (negative is counter-clockwise), so we invert it.
             const targetAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
-
-            // Shortest-Path Math: Prevent the bus from spinning 360 degrees when crossing West
             let angleDiff = targetAngle - (currentBusAngle % 360);
             if (angleDiff > 180) angleDiff -= 360;
             if (angleDiff < -180) angleDiff += 360;
 
             currentBusAngle += angleDiff;
 
-            // Apply the rotation to the DOM element
             const busImgElement = document.getElementById('live-bus-img');
             if (busImgElement) {
                 busImgElement.style.transform = `rotate(${currentBusAngle}deg)`;
             }
         }
-
-        // Move the actual marker to the new coordinates
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
     
@@ -303,13 +357,15 @@ function processFirebaseData(data) {
         }
     }
 
-    // UPDATE UI
     const targetStopName = routeSequence[currentTargetIndex];
     const targetCoords = stopCoords[targetStopName];
     const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
 
     updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05);
     refreshNearbyStops();
+    
+    // Dynamically update the Routes Tab UI!
+    updateLiveRoutesPanel(); 
 
   } else {
     etaDisplay.innerText = "Bus Offline";
@@ -320,18 +376,16 @@ function processFirebaseData(data) {
 // THE GATEKEEPERS
 const liveBusRef = ref(db, 'bus1/location');
 onValue(liveBusRef, (snapshot) => {
-    // If switch is on Live Mode, process hardware data
     if (!simActive) processFirebaseData(snapshot.val());
 });
 
 const demoBusRef = ref(db, 'bus_demo/location');
 onValue(demoBusRef, (snapshot) => {
-    // If switch is on Demo Mode, process script data
     if (simActive) processFirebaseData(snapshot.val());
 });
 
 // ==========================================
-// 8. NAVIGATION, UI, & NEARBY STOPS
+// 9. NAVIGATION, UI, & NEARBY STOPS
 // ==========================================
 const navItems = document.querySelectorAll('.nav-item');
 const views = document.querySelectorAll('.view');
@@ -343,14 +397,9 @@ navItems.forEach((item, index) => {
         item.classList.add('active');
         
         views.forEach(view => view.style.display = 'none');
-        
-        // THE CRITICAL FIX: This must be 'block', NOT 'flex'!
-        // This restores the vertical layout and stops the screen width from exploding.
         views[index].style.display = 'block'; 
         
-        // THE LEAFLET BUG FIX:
         if (index === 0) {
-            // Give the browser 50 milliseconds to render the tab, THEN tell Leaflet to wake up
             setTimeout(() => {
                 map.invalidateSize();
             }, 50);
@@ -382,8 +431,11 @@ function refreshNearbyStops() {
     let currentBusPos = liveBusMarker.getLatLng();
 
     nearbyList.innerHTML = top3Stops.map((stop) => {
-        const targetRouteIndex = getNextBusStopIndex(stop.name);
-        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex);
+        const isSeriStop = !routeSequence.includes(stop.name);
+        const seqArray = isSeriStop ? seriRouteSequence : routeSequence;
+        
+        const targetRouteIndex = getNextBusStopIndex(stop.name, seqArray);
+        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex, seqArray);
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
 
@@ -407,7 +459,6 @@ function refreshNearbyStops() {
     }).join("");
 }
 
-// User Location Dragger
 const userMarker = L.marker([currentLocation.lat, currentLocation.lng], { 
     draggable: true, icon: pegmanIcon 
 }).addTo(map);
@@ -421,7 +472,6 @@ userMarker.on('dragend', function (event) {
 
 refreshNearbyStops();
 
-// Live Clock
 function updateTime() {
     const now = new Date();
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -431,7 +481,6 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime(); 
 
-// Recenter Map Button
 const recenterBtn = document.createElement('div');
 recenterBtn.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4" y1="12" x2="2" y2="12"></line><line x1="22" y1="12" x2="18" y2="12"></line></svg>`;
 
@@ -448,7 +497,7 @@ if (mapWrapper) mapWrapper.appendChild(recenterBtn);
 
 
 // ==========================================
-// 9. SIDE PANEL (SCHEDULE UI)
+// 10. SIDE PANEL (SCHEDULE UI)
 // ==========================================
 const panelStyle = document.createElement('style');
 panelStyle.innerHTML = `
@@ -510,6 +559,9 @@ function updatePanelData() {
     let currentBusPos = liveBusMarker.getLatLng();
 
     const isCampus = currentPanelBusType === 'campus';
+    const activeSequence = isCampus ? routeSequence : seriRouteSequence;
+    const activeIndex = isCampus ? currentTargetIndex : seriTargetIndex;
+    
     const now = new Date();
 
     document.getElementById('panel-bus-title').innerHTML = isCampus ? '🚌 Shuttle 1 <span class="bus-plate">ALM 4021</span>' : '🚌 Shuttle 2 <span class="bus-plate">VAF 9091</span>';
@@ -523,13 +575,13 @@ function updatePanelData() {
     badge.style.padding = '0';
 
     let listHTML = "";
-    for (let i = 0; i < routeSequence.length; i++) {
-        const checkIndex = (currentTargetIndex + i) % routeSequence.length;
-        const stopName = routeSequence[checkIndex];
+    for (let i = 0; i < activeSequence.length; i++) {
+        const checkIndex = (activeIndex + i) % activeSequence.length;
+        const stopName = activeSequence[checkIndex];
         
         if (stopName === "Chancellor Complex 2") continue; 
 
-        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, checkIndex);
+        const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, checkIndex, activeSequence);
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
         
@@ -546,7 +598,7 @@ function updatePanelData() {
             
         let etaText = `ETA: ${m}m ${s}s`;
         if (isNextStop && isCampus) etaText = `<span style="color:#f87171; font-weight:600;">Arriving in: ${m}m ${s}s</span>`;
-        if (!isCampus) etaText = `<span style="color:#94a3b8;">Status: Standby</span>`;
+        if (!isCampus) etaText = `<span style="color:#94a3b8;">Status: Outbound</span>`;
 
         const timeBadge = isCampus ? etaLabel : '--:--';
 
@@ -579,26 +631,11 @@ function openLiveSchedulePanel(busType) {
 }
 
 // ==========================================
-// 10. STATIONARY SERI ISKANDAR BUS
+// 11. STATIONARY SERI ISKANDAR BUS
 // ==========================================
-const stationaryBusIcon = L.divIcon({
-    html: `<div style="
-        width: 34px; height: 34px; 
-        background: #f59e0b; 
-        border: 2px solid white; 
-        border-radius: 50%; 
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-        font-size: 18px;
-    ">🚌</div>`,
-    className: 'clear-icon',
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-    popupAnchor: [0, -20]
-});
-
-const seriIskandarBus = L.marker([4.365577, 100.9803029], { 
-    icon: getGpsArrowIcon('seri-bus-arrow', '#f59e0b') 
+// Replaced the Amber Diamond with the yellow bus image!
+const seriIskandarBus = L.marker([4.358500, 100.984000], { 
+    icon: staticYellowBusIcon
 }).addTo(map).on('click', () => openLiveSchedulePanel('seri'));
 
 // --- SETTINGS TOGGLE SWITCH LOGIC ---
@@ -608,7 +645,6 @@ const modeLabel = document.getElementById('mode-label');
 
 if (toggleSlider && toggleKnob && modeLabel) {
     toggleSlider.addEventListener('click', () => {
-        // Manually flip the boolean from true to false, or false to true
         simActive = !simActive; 
         
         if (simActive) {
@@ -618,18 +654,16 @@ if (toggleSlider && toggleKnob && modeLabel) {
             toggleKnob.style.transform = "translateX(0)";
         } else {
             modeLabel.innerText = "Live Mode";
-            modeLabel.style.color = "#ef4444"; // Red for Live hardware
+            modeLabel.style.color = "#ef4444"; 
             toggleSlider.style.backgroundColor = "#ef4444";
-            toggleKnob.style.transform = "translateX(20px)"; // Moves knob to the right
+            toggleKnob.style.transform = "translateX(20px)"; 
         }
         
-        // Destroy the old marker
         if (liveBusMarker) {
             map.removeLayer(liveBusMarker);
             liveBusMarker = null; 
         }
 
-        // FORCE INSTANT DATA FETCH: Read the new folder immediately!
         const targetPath = simActive ? 'bus_demo/location' : 'bus1/location';
         get(ref(db, targetPath)).then((snapshot) => {
             if (snapshot.exists()) {

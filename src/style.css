@@ -472,3 +472,25 @@ html, body {
   font-family: monospace;
   font-size: 14px;
 }
+
+/* --- LIVE ROUTE TIMELINE STATUS --- */
+.timeline-item.passed::before {
+  border-color: #475569; 
+  background: #334155;
+}
+.timeline-item.passed h4 {
+  color: #64748b; 
+  text-decoration: line-through;
+}
+.timeline-item.active::before {
+  border-color: #10b981; 
+  background: #10b981; 
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+.timeline-item.active h4 {
+  color: #10b981;
+}
+.timeline-item.active span {
+  color: #10b981; 
+  font-weight: bold;
+}
