@@ -57,7 +57,7 @@ const stopCoords = {
   "PMMD": { lat: 4.3883576, lng: 100.9672179 },
   "An-Nur Mosque": { lat: 4.3860407, lng: 100.9738842 },
   "Main Gate": { lat: 4.3856013, lng: 100.9789672 },
-  "V7": { lat: 4.3829973, lng: 100.9746703 },
+  "V7": { lat: 4.3832394, lng: 100.9747654 },
   "Chancellor Complex": { lat: 4.381329, lng: 100.970230 },
   "Chancellor Complex 2": { lat: 4.3823948, lng: 100.9703333 },
   "R&D": { lat: 4.3792507, lng: 100.9608721 },
@@ -204,6 +204,31 @@ function updateHighlightedStop() {
     });
 }
 
+function advanceTargetIndex(lat, lng, currentIndex, sequence) {
+    const targetName = sequence[currentIndex];
+    const targetCoords = stopCoords[targetName];
+    if (!targetCoords) return currentIndex;
+
+    // 1. Check if we hit the current target
+    const dist = calculateDistance(lat, lng, targetCoords.lat, targetCoords.lng);
+    if (dist < 0.1) { // 100 meter snap radius
+        return (currentIndex + 1) % sequence.length;
+    }
+    
+    // 2. Failsafe: Did we skip a stop due to GPS lag and hit the next one?
+    const nextIndex = (currentIndex + 1) % sequence.length;
+    const nextName = sequence[nextIndex];
+    const nextCoords = stopCoords[nextName];
+    if (nextCoords) {
+        const distNext = calculateDistance(lat, lng, nextCoords.lat, nextCoords.lng);
+        if (distNext < 0.1) {
+            return (nextIndex + 1) % sequence.length;
+        }
+    }
+    
+    return currentIndex;
+}
+
 // ==========================================
 // 6. POPULATE MAP STOPS
 // ==========================================
@@ -225,10 +250,23 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
   }).addTo(map);
 
   marker.on('click', () => {
-      if (!liveBusMarker) return; 
-      let currentBusPos = liveBusMarker.getLatLng();
-      
+      // Intelligently select the correct bus based on the stop clicked
+      const activeMarker = isSeriStop ? seriBusMarker : liveBusMarker;
       const seqArray = isSeriStop ? seriRouteSequence : routeSequence;
+      
+      if (!activeMarker) {
+          marker.bindPopup(`
+            <div style="text-align:center; font-family: system-ui, sans-serif;">
+                <b style="font-size:14px; color:#1e293b;">${displayName}</b><br>
+                <div style="margin-top:4px; font-size:13px; color:#ef4444; font-weight:bold; background:#fef2f2; padding:4px 8px; border-radius:6px; border: 1px solid #fca5a5;">
+                    Bus Offline
+                </div>
+            </div>
+          `).openPopup();
+          return; 
+      }
+      
+      let currentBusPos = activeMarker.getLatLng();
       const targetRouteIndex = getNextBusStopIndex(name, seqArray);
       const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, targetRouteIndex, seqArray);
       
@@ -352,16 +390,11 @@ function processFirebaseData(data) {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
     
-    // GEOFENCE SNAP
-    for (let i = 0; i < routeSequence.length; i++) {
-        const checkCoords = stopCoords[routeSequence[i]];
-        const checkDist = calculateDistance(data.lat, data.lng, checkCoords.lat, checkCoords.lng);
-        
-        if (checkDist < 0.05) { 
-            currentTargetIndex = (i + 1) % routeSequence.length; 
-            updateHighlightedStop(); 
-            break; 
-        }
+    // STATEFUL GEOFENCE SNAP
+    const newTarget = advanceTargetIndex(data.lat, data.lng, currentTargetIndex, routeSequence);
+    if (newTarget !== currentTargetIndex) {
+        currentTargetIndex = newTarget;
+        updateHighlightedStop();
     }
 
     const targetStopName = routeSequence[currentTargetIndex];
@@ -425,17 +458,8 @@ function processSeriFirebaseData(data) {
           seriBusMarker.setLatLng([data.lat, data.lng]);
       }
 
-      // Geofence Snap for Seri Iskandar Route
-      for (let i = 0; i < seriRouteSequence.length; i++) {
-          const checkCoords = stopCoords[seriRouteSequence[i]];
-          if (!checkCoords) continue;
-          const checkDist = calculateDistance(data.lat, data.lng, checkCoords.lat, checkCoords.lng);
-
-          if (checkDist < 0.05) {
-              seriTargetIndex = (i + 1) % seriRouteSequence.length;
-              break;
-          }
-      }
+      // STATEFUL GEOFENCE SNAP FOR BUS 2
+      seriTargetIndex = advanceTargetIndex(data.lat, data.lng, seriTargetIndex, seriRouteSequence);
 
       const targetStopName = seriRouteSequence[seriTargetIndex];
       const targetCoords = stopCoords[targetStopName];
