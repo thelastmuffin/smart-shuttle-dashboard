@@ -57,7 +57,7 @@ const stopCoords = {
   "PMMD": { lat: 4.3883576, lng: 100.9672179 },
   "An-Nur Mosque": { lat: 4.3860407, lng: 100.9738842 },
   "Main Gate": { lat: 4.3856013, lng: 100.9789672 },
-  "V6": { lat: 4.383104, lng: 100.974502 },
+  "V7": { lat: 4.3829973, lng: 100.9746703 },
   "Chancellor Complex": { lat: 4.381329, lng: 100.970230 },
   "Chancellor Complex 2": { lat: 4.3823948, lng: 100.9703333 },
   "R&D": { lat: 4.3792507, lng: 100.9608721 },
@@ -77,8 +77,8 @@ const stopCoords = {
 };
 
 const routeSequence = [
-  "PMMD", "An-Nur Mosque", "Main Gate", "V6", "Chancellor Complex",
-  "R&D", "V5", "V4", "PMMD", "Block L", "Chancellor Complex 2", "V6",
+  "PMMD", "An-Nur Mosque", "Main Gate", "V7", "Chancellor Complex",
+  "R&D", "V5", "V4", "PMMD", "Block L", "Chancellor Complex 2", "V7",
   "An-Nur Mosque", "PMMD"
 ];
 
@@ -112,8 +112,10 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 function getNextBusStopIndex(stopName, seqArray = routeSequence) {
+    // FIX: Look at the correct active index based on which route is selected!
+    const startIndex = (seqArray === routeSequence) ? currentTargetIndex : seriTargetIndex;
     for (let i = 0; i < seqArray.length; i++) {
-        let checkIndex = (currentTargetIndex + i) % seqArray.length;
+        let checkIndex = (startIndex + i) % seqArray.length;
         if (seqArray[checkIndex] === stopName) return checkIndex;
     }
     return 0; 
@@ -125,6 +127,7 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray
     let totalDistanceKm = 0;
     let intermediateStops = 0;
 
+    // FIX: Match the active route index
     const targetIndex = (seqArray === routeSequence) ? currentTargetIndex : seriTargetIndex;
     const nextStopName = seqArray[targetIndex];
     const nextStopCoords = stopCoords[nextStopName];
@@ -134,7 +137,9 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray
     totalDistanceKm += calculateDistance(currentLat, currentLng, nextStopCoords.lat, nextStopCoords.lng);
 
     let scanIndex = targetIndex;
-    while (scanIndex !== targetStopIndex) {
+    let maxLoops = seqArray.length + 2; // FIX: Safety cutoff to prevent browser freezing!
+
+    while (scanIndex !== targetStopIndex && maxLoops > 0) {
         let currentLegName = seqArray[scanIndex];
         let nextLegIndex = (scanIndex + 1) % seqArray.length;
         let nextLegName = seqArray[nextLegIndex];
@@ -144,6 +149,7 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray
         );
         intermediateStops++; 
         scanIndex = nextLegIndex;
+        maxLoops--;
     }
     const drivingTimeMins = (totalDistanceKm / campusBusSpeedKmH) * 60;
     return drivingTimeMins + (intermediateStops * boardingDelayMinutes);
