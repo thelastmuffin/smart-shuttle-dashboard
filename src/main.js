@@ -19,17 +19,22 @@ let simActive = true;
 let liveBusMarker = null;
 let currentBusAngle = 0;
 let currentTargetIndex = 1; 
-let seriBusMarker = null;      // NEW: Bus 2 Marker
-let currentSeriAngle = 0;      // NEW: Bus 2 Rotation
-let seriTargetIndex = 0;       // NEW: Bus 2 Route Index
+
+let seriBusMarker = null;      
+let currentSeriAngle = 0;      
+let seriTargetIndex = 0;       
+
 let lastLoggedTimestamp = "";
 let currentLocation = { lat: 4.3856013, lng: 100.9789672 }; 
 let panelUpdateInterval = null;
 let currentPanelBusType = 'campus';
-let mapTrackingMode = 'campus'; // Tracks which button is clicked!
+let mapTrackingMode = 'campus'; 
+
+// Teleportation Trackers
 let campusInitialized = false;
 let seriInitialized = false;
-
+let lastCampusPos = null;
+let lastSeriPos = null;
 
 // ==========================================
 // 3. MAP & ICON INITIALIZATION
@@ -73,7 +78,7 @@ const stopCoords = {
   "Lotus Bandar U": { lat: 4.3653742, lng: 100.9800968 },
   "Bandar Universiti": { lat: 4.3644669, lng: 100.9793297 },
   "Seri Iskandar Terminal": { lat: 4.3628764, lng: 100.9761312 },
-  "SIBC @ Billion SI": { lat: 4.3549557, lng: 100.9693651 }, // Using the SIBC coord
+  "SIBC @ Billion SI": { lat: 4.3549557, lng: 100.9693651 }, 
   "Apartment Seri Iskandar": { lat: 4.365308, lng: 100.9625477 },
   "Iskandar Prima SOHO": { lat: 4.3620317, lng: 100.9704162 },
   "IFS SOHO Apartment": { lat: 4.3733473, lng: 100.9794385 }
@@ -89,7 +94,7 @@ const seriRouteSequence = [
   "PMMD", "Main Gate", "Pump Station, Tronoh", "Lotus Bandar U", 
   "Bandar Universiti", "Seri Iskandar Terminal", "SIBC @ Billion SI", 
   "Apartment Seri Iskandar", "Iskandar Prima SOHO", "IFS SOHO Apartment", 
-  "Main Gate", "Block L", "Chancellor Complex", "R&D", "V4", "V5", "PMMD" // <--- PMMD added to the end to loop!
+  "Main Gate", "Block L", "Chancellor Complex", "R&D", "V4", "V5", "PMMD" 
 ];
 
 const utpBounds = L.latLngBounds(Object.values(stopCoords).map(({ lat, lng }) => [lat, lng]));
@@ -115,7 +120,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 function getNextBusStopIndex(stopName, seqArray = routeSequence) {
-    // FIX: Look at the correct active index based on which route is selected!
     const startIndex = (seqArray === routeSequence) ? currentTargetIndex : seriTargetIndex;
     for (let i = 0; i < seqArray.length; i++) {
         let checkIndex = (startIndex + i) % seqArray.length;
@@ -130,7 +134,6 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray
     let totalDistanceKm = 0;
     let intermediateStops = 0;
 
-    // FIX: Match the active route index
     const targetIndex = (seqArray === routeSequence) ? currentTargetIndex : seriTargetIndex;
     const nextStopName = seqArray[targetIndex];
     const nextStopCoords = stopCoords[nextStopName];
@@ -140,7 +143,7 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray
     totalDistanceKm += calculateDistance(currentLat, currentLng, nextStopCoords.lat, nextStopCoords.lng);
 
     let scanIndex = targetIndex;
-    let maxLoops = seqArray.length + 2; // FIX: Safety cutoff to prevent browser freezing!
+    let maxLoops = seqArray.length + 2; 
 
     while (scanIndex !== targetStopIndex && maxLoops > 0) {
         let currentLegName = seqArray[scanIndex];
@@ -159,7 +162,6 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray
 }
 
 function updateEtaDisplay(targetStopName, distanceKm, isArriving = false, busType = 'campus') {
-    // SECURITY: Ignore updates if they don't match the active tab!
     if (busType !== mapTrackingMode) return;
 
     if (!targetStopName || !Number.isFinite(distanceKm)) {
@@ -172,7 +174,7 @@ function updateEtaDisplay(targetStopName, distanceKm, isArriving = false, busTyp
     
     if (isArriving || distanceKm < 0.08) { 
         etaDisplay.innerText = `Arriving at ${displayName} Now!`;
-        etaDisplay.style.color = (busType === 'campus') ? "#10b981" : "#f59e0b"; // Green for Campus, Amber for Seri
+        etaDisplay.style.color = (busType === 'campus') ? "#10b981" : "#f59e0b"; 
     } else {
         if (busType === 'campus' && !liveBusMarker) return;
         if (busType === 'seri' && !seriBusMarker) return;
@@ -195,7 +197,6 @@ function updateHighlightedStop() {
         const isNextStop = name === routeSequence[currentTargetIndex];
         const color = isNextStop ? '#ef4444' : '#3b82f6';
         
-        // Let Seri Iskandar specific nodes remain blue to avoid confusion, only campus nodes turn red.
         if (!routeSequence.includes(name)) return;
         
         marker.setIcon(L.divIcon({
@@ -207,28 +208,23 @@ function updateHighlightedStop() {
     });
 }
 
+function checkTeleport(lastPos, currentPos) {
+    if (!lastPos) return true; 
+    if (calculateDistance(lastPos.lat, lastPos.lng, currentPos.lat, currentPos.lng) > 1.0) {
+        return true; 
+    }
+    return false;
+}
+
 function advanceTargetIndex(lat, lng, currentIndex, sequence) {
     const targetName = sequence[currentIndex];
     const targetCoords = stopCoords[targetName];
     if (!targetCoords) return currentIndex;
 
-    // 1. Check if we hit the current target
     const dist = calculateDistance(lat, lng, targetCoords.lat, targetCoords.lng);
-    if (dist < 0.1) { // 100 meter snap radius
+    if (dist < 0.05) { 
         return (currentIndex + 1) % sequence.length;
     }
-    
-    // 2. Failsafe: Did we skip a stop due to GPS lag and hit the next one?
-    const nextIndex = (currentIndex + 1) % sequence.length;
-    const nextName = sequence[nextIndex];
-    const nextCoords = stopCoords[nextName];
-    if (nextCoords) {
-        const distNext = calculateDistance(lat, lng, nextCoords.lat, nextCoords.lng);
-        if (distNext < 0.1) {
-            return (nextIndex + 1) % sequence.length;
-        }
-    }
-    
     return currentIndex;
 }
 
@@ -236,11 +232,11 @@ function advanceTargetIndex(lat, lng, currentIndex, sequence) {
 // 6. POPULATE MAP STOPS
 // ==========================================
 const stopMarkers = {};
+const dynamicPopup = L.popup(); // ONE unified popup fixes the open/close glitch!
+
 Object.entries(stopCoords).forEach(([name, coords]) => {
   const displayName = name.replace(" 2", ""); 
   const isSeriStop = !routeSequence.includes(name);
-
-  // Optionally make SI stops slightly different color, but we'll stick to blue for consistency
   const markerColor = isSeriStop ? '#f59e0b' : '#3b82f6';
 
   const marker = L.marker([coords.lat, coords.lng], {
@@ -252,23 +248,24 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
     })
   }).addTo(map);
 
-  // Fix: Bind an empty popup first so Leaflet natively handles the open/close state!
-  marker.bindPopup('<div style="padding:5px;">Loading...</div>');
+  marker.on('click', (e) => {
+      let activeType = mapTrackingMode;
+      const isCampusOnly = !seriRouteSequence.includes(name);
+      if (isCampusOnly) activeType = 'campus';
+      if (isSeriStop) activeType = 'seri';
 
-  marker.on('click', function() {
-      const activeType = isSeriStop ? 'seri' : 'campus';
       const activeMarker = activeType === 'seri' ? seriBusMarker : liveBusMarker;
       const seqArray = activeType === 'seri' ? seriRouteSequence : routeSequence;
       
       if (!activeMarker) {
-          this.setPopupContent(`
+          dynamicPopup.setLatLng(e.latlng).setContent(`
             <div style="text-align:center; font-family: system-ui, sans-serif;">
                 <b style="font-size:14px; color:#1e293b;">${displayName}</b><br>
                 <div style="margin-top:4px; font-size:13px; color:#ef4444; font-weight:bold; background:#fef2f2; padding:4px 8px; border-radius:6px; border: 1px solid #fca5a5;">
                     Bus Offline
                 </div>
             </div>
-          `);
+          `).openOn(map);
           return; 
       }
       
@@ -279,15 +276,14 @@ Object.entries(stopCoords).forEach(([name, coords]) => {
       const m = Math.floor(rawMins);
       const s = Math.floor((rawMins - m) * 60);
       
-      // Fix: Use setPopupContent to inject the ETA into the already-open popup
-      this.setPopupContent(`
+      dynamicPopup.setLatLng(e.latlng).setContent(`
         <div style="text-align:center; font-family: system-ui, sans-serif;">
             <b style="font-size:14px; color:#1e293b;">${displayName}</b><br>
             <div style="margin-top:4px; font-size:13px; color:${markerColor}; font-weight:bold; background:#eff6ff; padding:4px 8px; border-radius:6px; border: 1px solid #bfdbfe;">
                 Bus ETA: ${m}m ${s}s
             </div>
         </div>
-      `);
+      `).openOn(map);
   });
   stopMarkers[name] = marker;
 });
@@ -301,8 +297,6 @@ function renderLiveTimeline(containerId, sequence, currentIndex) {
 
     let html = "";
     sequence.forEach((stop, index) => {
-        if (stop === "Chancellor Complex 2") return; 
-        
         let className = "";
         let status = "Upcoming";
         
@@ -397,16 +391,30 @@ function processFirebaseData(data) {
         liveBusMarker.setLatLng([data.lat, data.lng]);
     }
     
-    // INITIALIZATION & STATEFUL GEOFENCE SNAP
+    // --- TELEPORT RECOVERY & GEOFENCE (CAMPUS) ---
+    if (checkTeleport(lastCampusPos, {lat: data.lat, lng: data.lng})) {
+        campusInitialized = false; 
+    }
+    lastCampusPos = {lat: data.lat, lng: data.lng};
+
     if (!campusInitialized) {
-        let closest = 0;
+        let closestIndex = 0;
         let minDist = 999;
+        
         for(let i=0; i<routeSequence.length; i++) {
             let d = calculateDistance(data.lat, data.lng, stopCoords[routeSequence[i]].lat, stopCoords[routeSequence[i]].lng);
-            if (d < minDist) { minDist = d; closest = i; }
+            if (d < 0.05) {
+                closestIndex = i;
+                break; 
+            }
+            if (d < minDist) {
+                minDist = d;
+                closestIndex = i;
+            }
         }
-        currentTargetIndex = (closest + 1) % routeSequence.length;
+        currentTargetIndex = (closestIndex + 1) % routeSequence.length;
         campusInitialized = true;
+        updateHighlightedStop();
     } else {
         const newTarget = advanceTargetIndex(data.lat, data.lng, currentTargetIndex, routeSequence);
         if (newTarget !== currentTargetIndex) {
@@ -419,10 +427,8 @@ function processFirebaseData(data) {
     const targetCoords = stopCoords[targetStopName];
     const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
 
-    updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'campus'); // <--- ADDED 'campus'
+    updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'campus'); 
     refreshNearbyStops();
-    
-    // Dynamically update the Routes Tab UI!
     updateLiveRoutesPanel(); 
 
   } else {
@@ -437,7 +443,6 @@ function processFirebaseData(data) {
 function processSeriFirebaseData(data) {
   if (data && data.lat && data.lng) {
       if (seriBusMarker === null) {
-          // Give Bus 2 its own unique ID so it rotates independently
           const seriBusImage = L.divIcon({
               html: `
                 <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
@@ -455,7 +460,6 @@ function processSeriFirebaseData(data) {
               .addTo(map);
 
       } else {
-          // Independent Rotation Math for Bus 2
           const oldPos = seriBusMarker.getLatLng();
           const dx = data.lng - oldPos.lng;
           const dy = data.lat - oldPos.lat;
@@ -476,18 +480,38 @@ function processSeriFirebaseData(data) {
           seriBusMarker.setLatLng([data.lat, data.lng]);
       }
 
-      // INITIALIZATION & STATEFUL GEOFENCE SNAP FOR BUS 2
+      // --- TELEPORT RECOVERY & GEOFENCE (SERI) ---
+      if (checkTeleport(lastSeriPos, {lat: data.lat, lng: data.lng})) {
+          seriInitialized = false; 
+      }
+      lastSeriPos = {lat: data.lat, lng: data.lng};
+
       if (!seriInitialized) {
-          let closest = 0;
+          let closestIndex = 0;
           let minDist = 999;
+          
           for(let i=0; i<seriRouteSequence.length; i++) {
               let d = calculateDistance(data.lat, data.lng, stopCoords[seriRouteSequence[i]].lat, stopCoords[seriRouteSequence[i]].lng);
-              if (d < minDist) { minDist = d; closest = i; }
+              if (d < 0.05) {
+                  closestIndex = i;
+                  break; 
+              }
+              if (d < minDist) {
+                  minDist = d;
+                  closestIndex = i;
+              }
           }
-          seriTargetIndex = (closest + 1) % seriRouteSequence.length;
+          seriTargetIndex = (closestIndex + 1) % seriRouteSequence.length;
           seriInitialized = true;
       } else {
           seriTargetIndex = advanceTargetIndex(data.lat, data.lng, seriTargetIndex, seriRouteSequence);
+      }
+
+      const targetStopName = seriRouteSequence[seriTargetIndex];
+      const targetCoords = stopCoords[targetStopName];
+      if (targetCoords) {
+          const distanceKm = calculateDistance(data.lat, data.lng, targetCoords.lat, targetCoords.lng);
+          updateEtaDisplay(targetStopName, distanceKm, distanceKm < 0.05, 'seri');
       }
       refreshNearbyStops();
 
@@ -547,7 +571,6 @@ function refreshNearbyStops() {
     Object.entries(stopCoords).forEach(([name, coords]) => {
         if (name === "Chancellor Complex 2") return; 
 
-        // MAGIC FILTER: Only show stations for the selected route!
         const isSeriStop = !routeSequence.includes(name);
         if (mapTrackingMode === 'campus' && isSeriStop) return;
         if (mapTrackingMode === 'seri' && !seriRouteSequence.includes(name)) return;
@@ -584,7 +607,6 @@ function refreshNearbyStops() {
         const etaLabel = etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const displayName = stop.name.replace(" 2", "");
         
-        // Color codes the text Blue for Campus, Amber for Seri Iskandar
         const timerColor = mapTrackingMode === 'campus' ? '#3b82f6' : '#f59e0b';
 
         return `
@@ -702,7 +724,6 @@ function updatePanelData() {
     const isCampus = currentPanelBusType === 'campus';
     const activeMarker = isCampus ? liveBusMarker : seriBusMarker;
 
-    // Guard clause: if the bus hasn't spawned on the map yet, do nothing
     if (!activeMarker) return; 
     let currentBusPos = activeMarker.getLatLng();
 
@@ -726,8 +747,6 @@ function updatePanelData() {
         const checkIndex = (activeIndex + i) % activeSequence.length;
         const stopName = activeSequence[checkIndex];
         
-        if (stopName === "Chancellor Complex 2") continue; 
-
         const rawMins = calculateBusEtaToStop(currentBusPos.lat, currentBusPos.lng, checkIndex, activeSequence);
         const m = Math.floor(rawMins);
         const s = Math.floor((rawMins - m) * 60);
@@ -738,7 +757,6 @@ function updatePanelData() {
         const displayName = stopName.replace(" 2", "");
         const isNextStop = (i === 0);
         
-        // Dynamic colors: Blue/Red for Campus, Amber for Seri Iskandar
         const activeColor = isCampus ? '#f87171' : '#f59e0b';
         const dotClass = isNextStop ? "stop-dot next-stop" : "stop-dot";
         const dotStyle = (isNextStop && !isCampus) ? `background: ${activeColor}; box-shadow: 0 0 0 2px ${activeColor};` : "";
@@ -771,7 +789,6 @@ function openLiveSchedulePanel(busType) {
     
     if (panelUpdateInterval) clearInterval(panelUpdateInterval);
     
-    // Now tick the live countdown timer for BOTH buses!
     panelUpdateInterval = setInterval(() => {
         if (sidePanel.classList.contains('open')) updatePanelData();
         else clearInterval(panelUpdateInterval); 
@@ -804,7 +821,7 @@ function refreshMapTrackingUI() {
             etaDisplay.style.color = "#dc3545";
         }
     }
-    refreshNearbyStops(); // Forces nearest stations to update!
+    refreshNearbyStops(); 
 }
 
 if (btnTrackCampus && btnTrackSeri) {
@@ -844,7 +861,6 @@ if (toggleSlider && toggleKnob && modeLabel) {
             toggleKnob.style.transform = "translateX(20px)"; 
         }
         
-        // Destroy old markers when switching modes
         if (liveBusMarker) {
             map.removeLayer(liveBusMarker);
             liveBusMarker = null; 
@@ -854,7 +870,6 @@ if (toggleSlider && toggleKnob && modeLabel) {
             seriBusMarker = null; 
         }
 
-        // Fetch Bus 1
         const targetPath = simActive ? 'bus_demo/location' : 'bus1/location';
         get(ref(db, targetPath)).then((snapshot) => {
             if (snapshot.exists()) {
@@ -865,10 +880,23 @@ if (toggleSlider && toggleKnob && modeLabel) {
             }
         });
         
-        // Fetch Bus 2
         const targetPath2 = simActive ? 'bus2_demo/location' : 'bus2/location';
         get(ref(db, targetPath2)).then((snapshot) => {
             if (snapshot.exists()) processSeriFirebaseData(snapshot.val());
         });
     });
 }
+
+// ==========================================
+// SCHEDULE DROPDOWN LOGIC
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const dropdowns = document.querySelectorAll('.trip-dropdown');
+    dropdowns.forEach(dropdown => {
+        dropdown.addEventListener('change', function() {
+            const routeClass = this.getAttribute('data-route-class');
+            document.querySelectorAll('.' + routeClass).forEach(el => el.style.display = 'none');
+            document.getElementById(this.value).style.display = 'block';
+        });
+    });
+});
