@@ -36,6 +36,12 @@ let seriInitialized = false;
 let lastCampusPos = null;
 let lastSeriPos = null;
 
+// ETA Anti-Bounce Memory
+let lastCampusTargetIndex = -1;
+let campusEtaMemory = {};
+let lastSeriTargetIndex = -1;
+let seriEtaMemory = {};
+
 // ==========================================
 // 3. MAP & ICON INITIALIZATION
 // ==========================================
@@ -129,20 +135,31 @@ function getNextBusStopIndex(stopName, seqArray = routeSequence) {
 }
 
 function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray = routeSequence) {
+    const isCampus = (seqArray === routeSequence);
+    const activeTargetIndex = isCampus ? currentTargetIndex : seriTargetIndex;
+
+    // 1. Reset memory cache if the bus has advanced to a new stop
+    if (isCampus && activeTargetIndex !== lastCampusTargetIndex) {
+        campusEtaMemory = {};
+        lastCampusTargetIndex = activeTargetIndex;
+    } else if (!isCampus && activeTargetIndex !== lastSeriTargetIndex) {
+        seriEtaMemory = {};
+        lastSeriTargetIndex = activeTargetIndex;
+    }
+
     const campusBusSpeedKmH = 22; 
     const boardingDelayMinutes = 0.3; 
     let totalDistanceKm = 0;
     let intermediateStops = 0;
 
-    const targetIndex = (seqArray === routeSequence) ? currentTargetIndex : seriTargetIndex;
-    const nextStopName = seqArray[targetIndex];
+    const nextStopName = seqArray[activeTargetIndex];
     const nextStopCoords = stopCoords[nextStopName];
     
     if(!nextStopCoords) return 0;
     
     totalDistanceKm += calculateDistance(currentLat, currentLng, nextStopCoords.lat, nextStopCoords.lng);
 
-    let scanIndex = targetIndex;
+    let scanIndex = activeTargetIndex;
     let maxLoops = seqArray.length + 2; 
 
     while (scanIndex !== targetStopIndex && maxLoops > 0) {
@@ -157,8 +174,32 @@ function calculateBusEtaToStop(currentLat, currentLng, targetStopIndex, seqArray
         scanIndex = nextLegIndex;
         maxLoops--;
     }
+    
+    // 2. Calculate the Raw ETA
     const drivingTimeMins = (totalDistanceKm / campusBusSpeedKmH) * 60;
-    return drivingTimeMins + (intermediateStops * boardingDelayMinutes);
+    const rawMins = drivingTimeMins + (intermediateStops * boardingDelayMinutes);
+
+    // ==========================================
+    // 3. SEAMLESS EPOCH TRACKING
+    // Instead of locking the "Minutes Remaining" (which freezes the UI),
+    // we lock the exact clock time the bus is expected to arrive.
+    // ==========================================
+    const memoryCache = isCampus ? campusEtaMemory : seriEtaMemory;
+    const now = Date.now();
+    const calculatedArrivalEpoch = now + (rawMins * 60000); // Current time + ETA in milliseconds
+
+    // If we haven't tracked this stop yet, OR the newly calculated arrival time is SOONER, update memory!
+    if (memoryCache[targetStopIndex] === undefined || calculatedArrivalEpoch < memoryCache[targetStopIndex]) {
+        memoryCache[targetStopIndex] = calculatedArrivalEpoch;
+    } 
+    // Failsafe: If the arrival time gets pushed back by > 1.5 minutes, accept the delay
+    else if (calculatedArrivalEpoch > memoryCache[targetStopIndex] + 90000) {
+        memoryCache[targetStopIndex] = calculatedArrivalEpoch;
+    }
+
+    // 4. Return the smoothly draining seconds!
+    const remainingMins = (memoryCache[targetStopIndex] - now) / 60000;
+    return Math.max(0, remainingMins); // Never let it drop below 0
 }
 
 function updateEtaDisplay(targetStopName, distanceKm, isArriving = false, busType = 'campus') {
