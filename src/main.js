@@ -49,19 +49,6 @@ const pegmanIcon = L.divIcon({
     popupAnchor: [0, -40]
 });
 
-// A reusable yellow bus icon function to perfectly match the rotating one!
-const staticYellowBusIcon = L.divIcon({
-    html: `
-      <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-        <img src="/bus-yellow.png" style="width: 50px; height: auto; filter: drop-shadow(2px 5px 4px rgba(0,0,0,0.4));">
-      </div>
-    `,
-    className: 'clear-icon',
-    iconSize: [60, 60],
-    iconAnchor: [30, 30],
-    popupAnchor: [0, -30]
-});
-
 // ==========================================
 // 4. THE DATA DICTIONARY
 // ==========================================
@@ -325,7 +312,7 @@ function processFirebaseData(data) {
         const busImage = L.divIcon({
             html: `
               <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                <img id="live-bus-img" src="/bus-yellow.png" style="width: 50px; height: auto; transform: rotate(0deg); transition: transform 0.6s linear; filter: drop-shadow(2px 5px 4px rgba(0,0,0,0.4));">
+                <img id="live-bus-img" src="/bus-blue.png" style="width: 50px; height: auto; transform: rotate(0deg); transition: transform 0.6s linear; filter: drop-shadow(2px 5px 4px rgba(0,0,0,0.4));">
               </div>
             `,
             className: 'clear-icon',
@@ -660,10 +647,13 @@ document.getElementById('close-panel-btn').addEventListener('click', () => sideP
 map.on('click', () => sidePanel.classList.remove('open'));
 
 function updatePanelData() {
-    if (!liveBusMarker) return; 
-    let currentBusPos = liveBusMarker.getLatLng();
-
     const isCampus = currentPanelBusType === 'campus';
+    const activeMarker = isCampus ? liveBusMarker : seriBusMarker;
+
+    // Guard clause: if the bus hasn't spawned on the map yet, do nothing
+    if (!activeMarker) return; 
+    let currentBusPos = activeMarker.getLatLng();
+
     const activeSequence = isCampus ? routeSequence : seriRouteSequence;
     const activeIndex = isCampus ? currentTargetIndex : seriTargetIndex;
     
@@ -695,26 +685,27 @@ function updatePanelData() {
         
         const displayName = stopName.replace(" 2", "");
         const isNextStop = (i === 0);
-        const dotClass = (isNextStop && isCampus) ? "stop-dot next-stop" : "stop-dot";
+        
+        // Dynamic colors: Blue/Red for Campus, Amber for Seri Iskandar
+        const activeColor = isCampus ? '#f87171' : '#f59e0b';
+        const dotClass = isNextStop ? "stop-dot next-stop" : "stop-dot";
+        const dotStyle = (isNextStop && !isCampus) ? `background: ${activeColor}; box-shadow: 0 0 0 2px ${activeColor};` : "";
 
-        const nameDisplay = (isNextStop && isCampus) 
-            ? `${displayName} <span style="background:rgba(239, 68, 68, 0.2); color:#f87171; border: 1px solid rgba(239,68,68,0.3); font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold;">HEADING HERE</span>` 
+        const nameDisplay = isNextStop 
+            ? `${displayName} <span style="background:${isCampus ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}; color:${activeColor}; border: 1px solid ${isCampus ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold;">HEADING HERE</span>` 
             : displayName;
             
         let etaText = `ETA: ${m}m ${s}s`;
-        if (isNextStop && isCampus) etaText = `<span style="color:#f87171; font-weight:600;">Arriving in: ${m}m ${s}s</span>`;
-        if (!isCampus) etaText = `<span style="color:#94a3b8;">Status: Outbound</span>`;
-
-        const timeBadge = isCampus ? etaLabel : '--:--';
+        if (isNextStop) etaText = `<span style="color:${activeColor}; font-weight:600;">Arriving in: ${m}m ${s}s</span>`;
 
         listHTML += `
             <div class="route-stop-item">
-                <div class="${dotClass}"></div>
+                <div class="${dotClass}" style="${dotStyle}"></div>
                 <div class="stop-info">
                     <div class="stop-name">${nameDisplay}</div>
                     <div class="stop-eta">${etaText}</div>
                 </div>
-                <div class="stop-time-badge" style="${!isCampus ? 'color:#475569; border-color:#1e293b;' : ''}">${timeBadge}</div>
+                <div class="stop-time-badge">${etaLabel}</div>
             </div>
         `;
     }
@@ -727,12 +718,12 @@ function openLiveSchedulePanel(busType) {
     updatePanelData(); 
     
     if (panelUpdateInterval) clearInterval(panelUpdateInterval);
-    if (busType === 'campus') { 
-        panelUpdateInterval = setInterval(() => {
-            if (sidePanel.classList.contains('open')) updatePanelData();
-            else clearInterval(panelUpdateInterval); 
-        }, 1000);
-    }
+    
+    // Now tick the live countdown timer for BOTH buses!
+    panelUpdateInterval = setInterval(() => {
+        if (sidePanel.classList.contains('open')) updatePanelData();
+        else clearInterval(panelUpdateInterval); 
+    }, 1000);
 }
 
 // ==========================================
